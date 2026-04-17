@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fondo: #121212;
+  --color-fondo-tarjeta: rgba(30, 30, 30, 0.8);
+  --color-fondo-borde: #333333;
+  --color-mostaza: #eab308;
+  --color-mostaza-hover: #ca8a04;
+}
+
+.bg-fondo-tarjeta {
+  backdrop-filter: blur(10px);
+}
+
+body {
+  @apply bg-fondo text-white relative min-h-screen font-sans antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/images/catrina.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.38; /* Aumentado para que la imagen sea más protagonista */
+  filter: brightness(0.4) contrast(1.3) sepia(15%) saturate(1.4);
+  pointer-events: none;
+  z-index: -1;
+}

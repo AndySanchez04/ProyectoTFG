@@ -1,0 +1,9 @@
+  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos est??n actualizados para la restauraci??n.
+  backend -> C:\Users\angel\Desktop\RestauranteFullStack\backend\bin\Debug\net8.0\backend.dll
+
+Compilaci??n correcta.
+    0 Advertencia(s)
+    0 Errores
+
+Tiempo transcurrido 00:00:00.77
