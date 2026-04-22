@@ -230,6 +230,7 @@ function EmpleadosModule({ loggedInUserId }) {
   const [roleFilter, setRoleFilter] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
   const [modal, setModal] = useState({ show: false, usuarioId: null, newRole: '', nombre: '' });
+  const [inviteModal, setInviteModal] = useState({ show: false, email: '', rol: 'camarero' });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
@@ -280,6 +281,25 @@ function EmpleadosModule({ loggedInUserId }) {
     setModal({ show: false, usuarioId: null, newRole: '', nombre: '' });
   };
 
+  const submitInvite = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/auth/invite`, {
+        email: inviteModal.email,
+        rol: inviteModal.rol
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Invitación enviada correctamente', 'success');
+      setInviteModal({ show: false, email: '', rol: 'camarero' });
+      fetchUsuarios();
+    } catch (error) {
+      console.error(error);
+      showToast(error.response?.data || 'Error al enviar invitación', 'error');
+    }
+  };
+
   const filteredUsuarios = usuarios.filter(u => {
     const matchesSearch = (u.nombre || '').toLowerCase().includes(search.toLowerCase()) || 
                           (u.email || '').toLowerCase().includes(search.toLowerCase());
@@ -315,20 +335,32 @@ function EmpleadosModule({ loggedInUserId }) {
             />
         </div>
 
-        {/* Filter */}
-        <div className="w-full sm:w-auto min-w-[180px]">
-            <select 
-                className="w-full px-4 py-2.5 bg-fondo-tarjeta border border-fondo-borde text-white rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-mostaza focus:border-mostaza transition-all shadow-sm appearance-none hover:cursor-pointer"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+        {/* Filter and Invite Button */}
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
+            <div className="min-w-[180px]">
+                <select 
+                    className="w-full px-4 py-2.5 bg-fondo-tarjeta border border-fondo-borde text-white rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-mostaza focus:border-mostaza transition-all shadow-sm appearance-none hover:cursor-pointer"
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                >
+                    <option value="">Todos los perfiles</option>
+                    <option value="cliente" className="bg-fondo text-white">👤 Cliente</option>
+                    <option value="camarero" className="bg-fondo text-white">☕ Camarero</option>
+                    <option value="cocinero" className="bg-fondo text-white">🍳 Cocinero</option>
+                    <option value="jefe" className="bg-fondo text-white">⭐ Jefe</option>
+                </select>
+            </div>
+            
+            <button 
+                onClick={() => setInviteModal({ show: true, email: '', rol: 'camarero' })}
+                className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-md flex items-center justify-center gap-2"
             >
-                <option value="">Todos los perfiles</option>
-                <option value="cliente" className="bg-fondo text-white">👤 Cliente</option>
-                <option value="camarero" className="bg-fondo text-white">☕ Camarero</option>
-                <option value="cocinero" className="bg-fondo text-white">🍳 Cocinero</option>
-                <option value="jefe" className="bg-fondo text-white">⭐ Jefe</option>
-            </select>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+                Invitar Empleado
+            </button>
         </div>
       </div>
 
@@ -453,6 +485,42 @@ function EmpleadosModule({ loggedInUserId }) {
                         Confirmar
                     </button>
                 </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Invite Modal via Portal */}
+      {inviteModal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="absolute inset-0" onClick={() => setInviteModal({ ...inviteModal, show: false })}></div>
+            <div className="bg-fondo-tarjeta text-white border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-sm p-8 animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+                <div className="p-2 mb-4">
+                    <h3 className="text-xl font-bold text-white mb-2">Invitar Empleado</h3>
+                    <p className="text-sm text-gray-400">
+                        Enviaremos un enlace único para que configure su cuenta.
+                    </p>
+                </div>
+                <form onSubmit={submitInvite} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                        <input required type="email" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={inviteModal.email} onChange={e => setInviteModal({...inviteModal, email: e.target.value})} placeholder="empleado@restaurante.com" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Rol</label>
+                        <select className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none appearance-none" value={inviteModal.rol} onChange={e => setInviteModal({...inviteModal, rol: e.target.value})}
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                        >
+                            <option className="bg-fondo text-white" value="camarero">Camarero</option>
+                            <option className="bg-fondo text-white" value="cocinero">Cocinero</option>
+                            <option className="bg-fondo text-white" value="jefe">Jefe</option>
+                        </select>
+                    </div>
+                    <div className="pt-4 flex gap-3">
+                        <button type="button" onClick={() => setInviteModal({ ...inviteModal, show: false })} className="flex-1 py-2.5 px-4 bg-transparent border border-fondo-borde text-gray-300 font-medium rounded-xl hover:bg-fondo-borde transition-colors shadow-sm">Cancelar</button>
+                        <button type="submit" className="flex-1 py-2.5 px-4 bg-mostaza text-black font-bold rounded-xl hover:bg-mostaza-hover transition-colors shadow-sm">Enviar Invitación</button>
+                    </div>
+                </form>
             </div>
         </div>,
         document.body

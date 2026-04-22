@@ -22,4 +22,9 @@ public partial class Usuario
     public DateTime? FechaRegistro { get; set; }
 
     public virtual ICollection<Reserva> Reservas { get; set; } = new List<Reserva>();
+
+    // B2B Magic Link properties
+    public string? InvitationToken { get; set; }
+    public DateTime? TokenExpiration { get; set; }
+    public bool IsActive { get; set; } = true;
 }

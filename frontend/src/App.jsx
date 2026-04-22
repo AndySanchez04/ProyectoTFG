@@ -9,6 +9,7 @@ import MisDatos from './MisDatos';
 import DashboardWaiter from './DashboardWaiter';
 import DashboardAdmin from './components/DashboardAdmin';
 import PanelCocina from './PanelCocina';
+import SetupPassword from './SetupPassword';
 
 // Interceptor global: inyecta el token JWT en TODAS las peticiones automáticamente
 axios.interceptors.request.use(
@@ -28,6 +29,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
+        <Route path="/setup-password" element={<SetupPassword />} />
         <Route path="/cartas" element={<Cartas />} />
         <Route path="/reservas" element={
           <ProtectedRoute allowedRoles={['cliente', 'jefe']}>
