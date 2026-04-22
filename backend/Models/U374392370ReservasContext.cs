@@ -31,6 +31,7 @@ public partial class U374392370ReservasContext : DbContext
     public virtual DbSet<MovimientoInventario> MovimientosInventario { get; set; }
     public virtual DbSet<Gasto> Gastos { get; set; }
     public virtual DbSet<Factura> Facturas { get; set; }
+    public virtual DbSet<Empleado> Empleados { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -107,6 +108,19 @@ public partial class U374392370ReservasContext : DbContext
             entity.Property(e => e.Rol)
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'cliente'");
+        });
+
+        modelBuilder.Entity<Empleado>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+            entity.Property(e => e.Id).HasColumnType("int(11)");
+            entity.Property(e => e.Nombre).HasMaxLength(100);
+            entity.Property(e => e.Apellidos).HasMaxLength(100);
+            entity.Property(e => e.DNI).HasMaxLength(20);
+            entity.Property(e => e.Correo).HasMaxLength(150);
+            entity.Property(e => e.Telefono).HasMaxLength(50);
+            entity.Property(e => e.Sueldo).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Rango).HasMaxLength(50);
         });
 
         OnModelCreatingPartial(modelBuilder);

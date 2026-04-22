@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "c/1LEPmvbn0=",
+  "dgSpecHash": "nYhMj0MlKEQ=",
   "success": true,
-  "projectFilePath": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj",
+  "projectFilePath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\cosas\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
     "C:\\Users\\cosas\\.nuget\\packages\\bouncycastle.cryptography\\2.4.0\\bouncycastle.cryptography.2.4.0.nupkg.sha512",
@@ -73,9 +73,9 @@
       "code": "NU1902",
       "level": "Warning",
       "message": "El paquete \"MailKit\" 4.8.0 tiene una vulnerabilidad de gravedad moderada conocida, https://github.com/advisories/GHSA-9j88-vvj5-vhgr",
-      "projectPath": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj",
+      "projectPath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
       "warningLevel": 1,
-      "filePath": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj",
+      "filePath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
       "libraryId": "MailKit",
       "targetGraphs": [
         "net8.0"

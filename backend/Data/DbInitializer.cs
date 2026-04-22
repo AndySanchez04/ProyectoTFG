@@ -14,6 +14,9 @@ namespace backend.Data
             using var context = new U374392370ReservasContext(
                 serviceProvider.GetRequiredService<DbContextOptions<U374392370ReservasContext>>());
 
+            // Asegurar que la base de datos y las tablas existen
+            context.Database.EnsureCreated();
+
             // TAREA 3: Limpieza inicial
             var todasLasMesas = context.MesasRestaurantes.ToList();
             
@@ -66,10 +69,20 @@ namespace backend.Data
 
             // TAREA: Insertar Categorías del Menú
             var categoriasBasicas = new[] {
-                "Entrante", "Principal", "Bebida", "MenuDiario", "Postres", 
+                "Cervezas", "Vinos", "Refrescos", "MenuDiario", "Postres", 
                 "Tacos", "Quesadillas", "Hamburguesas", "Nachos", 
-                "Raciones", "Cervezas", "Refrescos", "Cócteles", "Especialidades"
+                "Raciones", "Zumos y Batidos", "Copas", "Ensaladas", "Especialidades", "Cócteles",
+                "Otros", "Tequila y Mezcal"
             };
+
+            var categoriasActuales = context.CategoriasMenu.ToList();
+            foreach (var catActual in categoriasActuales)
+            {
+                if (!categoriasBasicas.Contains(catActual.Nombre))
+                {
+                    context.CategoriasMenu.Remove(catActual);
+                }
+            }
 
             foreach (var cat in categoriasBasicas)
             {
@@ -80,45 +93,7 @@ namespace backend.Data
             }
             context.SaveChanges();
 
-            // TAREA 3: Insertar Menú Real
-            var productosNuevos = new List<ProductoMenu>
-            {
-                new ProductoMenu { Nombre = "Tacos al Pastor (3ud)", Precio = 8.50m, Categoria = "Tacos" },
-                new ProductoMenu { Nombre = "Tacos de Cochinita", Precio = 9.00m, Categoria = "Tacos" },
-                new ProductoMenu { Nombre = "Tacos Veganos", Precio = 8.00m, Categoria = "Tacos" },
-                new ProductoMenu { Nombre = "Quesadilla Sincronizada", Precio = 6.50m, Categoria = "Quesadillas" },
-                new ProductoMenu { Nombre = "Quesadilla de Pollo", Precio = 7.50m, Categoria = "Quesadillas" },
-                new ProductoMenu { Nombre = "Quesadilla de Champiñones", Precio = 7.00m, Categoria = "Quesadillas" },
-                new ProductoMenu { Nombre = "Burger Clásica", Precio = 10.00m, Categoria = "Hamburguesas" },
-                new ProductoMenu { Nombre = "Burger Doble Smash", Precio = 13.50m, Categoria = "Hamburguesas" },
-                new ProductoMenu { Nombre = "Nachos con Queso", Precio = 8.00m, Categoria = "Nachos" },
-                new ProductoMenu { Nombre = "Nachos Machos Completos", Precio = 12.50m, Categoria = "Nachos" },
-                new ProductoMenu { Nombre = "Enchiladas Verdes", Precio = 14.00m, Categoria = "Especialidades" },
-                new ProductoMenu { Nombre = "Fajitas Mixtas", Precio = 16.50m, Categoria = "Especialidades" },
-                new ProductoMenu { Nombre = "Patatas Bravas", Precio = 6.00m, Categoria = "Raciones" },
-                new ProductoMenu { Nombre = "Calamares a la Andaluza", Precio = 10.00m, Categoria = "Raciones" },
-                new ProductoMenu { Nombre = "Croquetas Caseras", Precio = 8.50m, Categoria = "Raciones" },
-                new ProductoMenu { Nombre = "Tarta de Queso", Precio = 6.50m, Categoria = "Postres" },
-                new ProductoMenu { Nombre = "Brownie con Helado", Precio = 6.00m, Categoria = "Postres" },
-                
-                new ProductoMenu { Nombre = "Caña", Precio = 2.00m, Categoria = "Cervezas" },
-                new ProductoMenu { Nombre = "Doble", Precio = 3.00m, Categoria = "Cervezas" },
-                new ProductoMenu { Nombre = "Tercio IPA", Precio = 4.50m, Categoria = "Cervezas" },
-                new ProductoMenu { Nombre = "Coca-Cola", Precio = 2.50m, Categoria = "Refrescos" },
-                new ProductoMenu { Nombre = "Fanta Naranja", Precio = 2.50m, Categoria = "Refrescos" },
-                new ProductoMenu { Nombre = "Agua con Gas", Precio = 2.00m, Categoria = "Refrescos" },
-                new ProductoMenu { Nombre = "Margarita Clásica", Precio = 8.00m, Categoria = "Cócteles" },
-                new ProductoMenu { Nombre = "Mojito Cubano", Precio = 7.50m, Categoria = "Cócteles" },
-                new ProductoMenu { Nombre = "Piña Colada", Precio = 8.00m, Categoria = "Cócteles" }
-            };
-
-            foreach (var producto in productosNuevos)
-            {
-                if (!context.ProductoMenus.Any(p => p.Nombre == producto.Nombre))
-                {
-                    context.ProductoMenus.Add(producto);
-                }
-            }
+            // TAREA 3: Los productos se gestionan desde el panel de control.
 
             // TAREA 3: Insertar Usuarios de Prueba para Testing de Roles
             var usuariosPrueba = new List<Usuario>

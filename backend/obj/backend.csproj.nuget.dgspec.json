@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj": {}
+    "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj": {}
   },
   "projects": {
-    "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj": {
+    "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj",
+        "projectUniqueName": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\backend.csproj",
+        "projectPath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
         "packagesPath": "C:\\Users\\cosas\\.nuget\\packages\\",
-        "outputPath": "E:\\TFC\\RestauranteFullStack\\RestauranteFullStack\\backend\\obj\\",
+        "outputPath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

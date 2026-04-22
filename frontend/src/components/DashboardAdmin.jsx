@@ -4,9 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area, Cell
+} from 'recharts';
 
 export default function DashboardAdmin() {
-  const [activeTab, setActiveTab] = useState('empleados');
+  const [activeTab, setActiveTab] = useState('usuarios');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [profile, setProfile] = useState({ nombre: 'Administrador', fotoPerfil: null });
@@ -75,9 +79,11 @@ export default function DashboardAdmin() {
   };
 
   const tabs = [
+    { id: 'usuarios', label: 'Usuarios' },
     { id: 'empleados', label: 'Empleados' },
     { id: 'menu', label: 'Menú y Carta' },
     { id: 'inventario', label: 'Inventario' },
+    { id: 'gastos', label: 'Gastos' },
     { id: 'finanzas', label: 'Finanzas' },
   ];
 
@@ -191,31 +197,12 @@ export default function DashboardAdmin() {
 
             {/* Dynamic Content */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {activeTab === 'empleados' && <EmpleadosModule loggedInUserId={loggedInUserId} />}
+                {activeTab === 'usuarios' && <EmpleadosModule loggedInUserId={loggedInUserId} />}
+                {activeTab === 'empleados' && <GestionEmpleadosModule />}
                 {activeTab === 'menu' && <MenuModule />}
-                {activeTab === 'inventario' && (
-                    <div className="p-12 text-center bg-fondo-tarjeta rounded-2xl border border-dashed border-fondo-borde">
-                        <h3 className="text-xl font-semibold text-gray-300 mb-2">Módulo de Inventario</h3>
-                        <p className="text-sm text-gray-500">Próximamente disponible</p>
-                    </div>
-                )}
-                {activeTab === 'finanzas' && (
-                    <div className="p-12 text-center bg-fondo-tarjeta rounded-2xl border border-dashed border-fondo-borde space-y-6">
-                        <div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Módulo de Finanzas</h3>
-                            <p className="text-sm text-gray-400">Visualiza los ingresos y gastos mensuales</p>
-                        </div>
-                        <button 
-                            onClick={exportToPDF}
-                            className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-3 px-6 rounded-xl shadow-lg transition-colors flex items-center gap-2 mx-auto"
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Exportar Informe (PDF)
-                        </button>
-                    </div>
-                )}
+                {activeTab === 'inventario' && <InventarioModule />}
+                {activeTab === 'gastos' && <GastosModule />}
+                {activeTab === 'finanzas' && <FinanzasModule exportToPDF={exportToPDF} />}
             </div>
           </div>
         </main>
@@ -245,7 +232,7 @@ function EmpleadosModule({ loggedInUserId }) {
       setUsuarios(response.data);
     } catch (error) {
       console.error('Error fetching usuarios:', error);
-      showToast('Error al cargar la lista de trabajadores', 'error');
+      showToast('Error al cargar la lista de usuarios', 'error');
     } finally {
       setLoading(false);
     }
@@ -360,7 +347,7 @@ function EmpleadosModule({ loggedInUserId }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                 </svg>
-                Invitar Empleado
+                Invitar Usuario
             </button>
         </div>
       </div>
@@ -497,7 +484,7 @@ function EmpleadosModule({ loggedInUserId }) {
             <div className="absolute inset-0" onClick={() => setInviteModal({ ...inviteModal, show: false })}></div>
             <div className="bg-fondo-tarjeta text-white border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-sm p-8 animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
                 <div className="p-2 mb-4">
-                    <h3 className="text-xl font-bold text-white mb-2">Invitar Empleado</h3>
+                    <h3 className="text-xl font-bold text-white mb-2">Invitar Usuario</h3>
                     <p className="text-sm text-gray-400">
                         Enviaremos un enlace único para que configure su cuenta.
                     </p>
@@ -858,6 +845,961 @@ function MenuModule() {
         document.body
       )}
 
+    </div>
+  );
+}
+
+function InventarioModule() {
+  const [articulos, setArticulos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [modal, setModal] = useState({ show: false, editingArticulo: null });
+  const [formData, setFormData] = useState({ 
+    nombre: '', 
+    cantidadActual: 0, 
+    unidadMedida: 'Kg', 
+    precioCoste: 0 
+  });
+  
+  const [deleteModal, setDeleteModal] = useState({ show: false, id: null, nombre: '' });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchInventario();
+  }, []);
+
+  const fetchInventario = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/api/inventario`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setArticulos(res.data);
+    } catch (error) {
+      console.error(error);
+      showToast('Error al cargar inventario', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  const openAddModal = () => {
+    setFormData({ nombre: '', cantidadActual: 0, unidadMedida: 'Kg', precioCoste: 0 });
+    setModal({ show: true, editingArticulo: null });
+  };
+
+  const openEditModal = (art) => {
+    setFormData({ ...art });
+    setModal({ show: true, editingArticulo: art.id });
+  };
+
+  const closeModals = () => {
+    setModal({ show: false, editingArticulo: null });
+    setDeleteModal({ show: false, id: null, nombre: '' });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      if (modal.editingArticulo) {
+        await axios.put(`${API_URL}/api/inventario/${modal.editingArticulo}`, 
+            { ...formData, id: modal.editingArticulo },
+            { headers }
+        );
+        showToast('Artículo actualizado', 'success');
+      } else {
+        await axios.post(`${API_URL}/api/inventario`, formData, { headers });
+        showToast('Artículo creado', 'success');
+      }
+      closeModals();
+      fetchInventario();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al guardar', 'error');
+    }
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/inventario/${deleteModal.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Artículo eliminado', 'success');
+      closeModals();
+      fetchInventario();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  if (loading) return (
+    <div className="h-64 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
+        <span className="text-sm font-medium text-gray-400 animate-pulse">Cargando inventario...</span>
+    </div>
+  );
+
+  return (
+    <div className="bg-fondo-tarjeta rounded-2xl shadow-sm border border-fondo-borde overflow-hidden">
+      <div className="p-5 sm:p-6 border-b border-fondo-borde flex justify-between items-center bg-fondo-tarjeta z-20 relative">
+        <h3 className="text-lg font-bold text-white">Inventario de Cocina</h3>
+        <button 
+            onClick={openAddModal}
+            className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-md flex items-center gap-2"
+        >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+            Añadir Artículo
+        </button>
+      </div>
+
+      <div className="overflow-x-auto w-full">
+        <table className="w-full text-left text-sm whitespace-nowrap">
+          <thead className="bg-fondo/80 text-gray-400 border-b border-fondo-borde">
+            <tr>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Artículo</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Stock Actual</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Unidad</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Coste/Uds</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right w-32">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-fondo-borde">
+            {articulos.map(art => (
+              <tr key={art.id} className="hover:bg-fondo/60 transition-colors group">
+                <td className="px-6 py-4">
+                    <span className="font-semibold text-white">{art.nombre}</span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold border ${art.cantidadActual < 5 ? 'bg-red-950/30 text-red-400 border-red-900/50' : 'bg-mostaza/20 text-mostaza border-mostaza/30'}`}>
+                    {art.cantidadActual}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-gray-300">
+                    {art.unidadMedida}
+                </td>
+                <td className="px-6 py-4 font-bold text-mostaza">
+                    {art.precioCoste.toFixed(2)}€
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button onClick={() => openEditModal(art)} className="text-mostaza hover:text-white font-medium text-sm mr-4 transition-colors">Editar</button>
+                  <button onClick={() => setDeleteModal({ show: true, id: art.id, nombre: art.nombre })} className="text-mostaza hover:text-white font-medium text-sm transition-colors">Borrar</button>
+                </td>
+              </tr>
+            ))}
+            {articulos.length === 0 && (
+                <tr>
+                    <td colSpan="5" className="text-center py-16 px-4 text-gray-500">
+                        No hay artículos en el inventario aún.
+                    </td>
+                </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {modal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="absolute inset-0" onClick={closeModals}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-lg p-8 text-white animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+                <h3 className="text-xl font-bold text-white mb-6">{modal.editingArticulo ? 'Editar Artículo' : 'Añadir Nuevo Artículo'}</h3>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Nombre</label>
+                        <input required type="text" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Stock Actual</label>
+                            <input required type="number" step="0.01" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.cantidadActual} onChange={e => setFormData({...formData, cantidadActual: parseFloat(e.target.value) || 0})} />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Unidad de Medida</label>
+                            <select className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none appearance-none" value={formData.unidadMedida} onChange={e => setFormData({...formData, unidadMedida: e.target.value})}
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                            >
+                                <option className="bg-fondo text-white" value="Kg">Kg</option>
+                                <option className="bg-fondo text-white" value="Gramos">Gramos</option>
+                                <option className="bg-fondo text-white" value="Litros">Litros</option>
+                                <option className="bg-fondo text-white" value="Mililitros">Mililitros</option>
+                                <option className="bg-fondo text-white" value="Unidad">Unidad</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Precio de Coste</label>
+                        <input required type="number" step="0.01" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.precioCoste} onChange={e => setFormData({...formData, precioCoste: parseFloat(e.target.value) || 0})} />
+                    </div>
+                    
+                    <div className="pt-4 flex gap-3">
+                        <button type="button" onClick={closeModals} className="flex-1 py-2.5 px-4 bg-transparent border border-fondo-borde text-gray-300 font-medium rounded-xl hover:bg-fondo transition-colors">Cancelar</button>
+                        <button type="submit" className="flex-1 py-2.5 px-4 bg-mostaza text-black font-bold rounded-xl hover:bg-mostaza-hover transition-colors">Guardar Artículo</button>
+                    </div>
+                </form>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {deleteModal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="absolute inset-0" onClick={closeModals}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-sm p-8 text-center text-white animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+                <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center mx-auto mb-4 border border-red-900/50">
+                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Eliminar Artículo</h3>
+                <p className="text-sm text-gray-400 mb-6">¿Estás seguro de eliminar <strong className="text-mostaza font-bold">"{deleteModal.nombre}"</strong>? Esta acción no se puede deshacer.</p>
+                <div className="flex gap-3">
+                    <button onClick={closeModals} className="flex-1 py-2.5 bg-fondo border border-fondo-borde text-gray-300 font-medium rounded-xl hover:bg-fondo-borde transition-colors">Cancelar</button>
+                    <button onClick={confirmDelete} className="flex-1 py-2.5 bg-mostaza text-black font-bold rounded-xl hover:bg-mostaza-hover transition-colors">Eliminar</button>
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {toast.show && (
+        <div className={`fixed bottom-6 right-6 lg:bottom-8 lg:right-8 px-5 py-3.5 rounded-xl shadow-2xl text-white transform transition-all duration-300 z-50 flex items-center gap-3 ${toast.type === 'success' ? 'bg-fondo-tarjeta border border-mostaza shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-fondo-tarjeta border border-red-500'}`}>
+          {toast.type === 'success' ? (
+              <div className="w-6 h-6 rounded-full bg-mostaza/20 text-mostaza flex items-center justify-center shrink-0 border border-mostaza/30">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+              </div>
+          ) : (
+              <div className="w-6 h-6 rounded-full bg-red-950/30 text-red-500 flex items-center justify-center shrink-0 border border-red-900/50">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              </div>
+          )}
+          <span className="font-medium text-sm text-white">{toast.message}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GestionEmpleadosModule() {
+  const [empleados, setEmpleados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [modal, setModal] = useState({ show: false, mode: 'add' }); // 'add' or 'edit'
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre: '', apellidos: '', dni: '', correo: '', telefono: '', sueldo: 0, rango: 'camarero'
+  });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchEmpleados();
+  }, []);
+
+  const fetchEmpleados = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/api/empleados`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEmpleados(res.data);
+    } catch (error) {
+      console.error(error);
+      showToast('Error al cargar empleados', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  const handleAdd = () => {
+    setFormData({ nombre: '', apellidos: '', dni: '', correo: '', telefono: '', sueldo: 0, rango: 'camarero' });
+    setModal({ show: true, mode: 'add' });
+  };
+
+  const handleEdit = () => {
+    if (!selectedId) return;
+    const emp = empleados.find(e => e.id === selectedId);
+    setFormData({ ...emp });
+    setModal({ show: true, mode: 'edit' });
+  };
+
+  const handleDelete = () => {
+    if (!selectedId) return;
+    setDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/empleados/${selectedId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Empleado eliminado', 'success');
+      setDeleteModal(false);
+      setSelectedId(null);
+      fetchEmpleados();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      if (modal.mode === 'edit') {
+        await axios.put(`${API_URL}/api/empleados/${selectedId}`, formData, { headers });
+        showToast('Empleado actualizado', 'success');
+      } else {
+        await axios.post(`${API_URL}/api/empleados`, formData, { headers });
+        showToast('Empleado creado', 'success');
+      }
+      setModal({ show: false, mode: 'add' });
+      fetchEmpleados();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al guardar', 'error');
+    }
+  };
+
+  if (loading) return (
+    <div className="h-64 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
+        <span className="text-sm font-medium text-gray-400 animate-pulse">Cargando personal...</span>
+    </div>
+  );
+
+  return (
+    <div className="bg-fondo-tarjeta rounded-2xl shadow-sm border border-fondo-borde overflow-hidden">
+      {/* Botones Superiores */}
+      <div className="p-5 sm:p-6 border-b border-fondo-borde flex flex-wrap gap-4 bg-fondo-tarjeta z-20 relative">
+        <button 
+            onClick={handleAdd}
+            className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-2.5 px-6 rounded-xl text-sm transition-colors shadow-md flex items-center gap-2"
+        >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
+            Añadir Empleado
+        </button>
+
+        <button 
+            onClick={handleEdit}
+            disabled={!selectedId}
+            className={`py-2.5 px-6 rounded-xl text-sm font-bold transition-colors shadow-md flex items-center gap-2 border ${selectedId ? 'bg-fondo text-white border-mostaza/50 hover:bg-mostaza/10' : 'bg-fondo/50 text-gray-500 border-fondo-borde cursor-not-allowed'}`}
+        >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            Editar Seleccionado
+        </button>
+
+        <button 
+            onClick={handleDelete}
+            disabled={!selectedId}
+            className={`py-2.5 px-6 rounded-xl text-sm font-bold transition-colors shadow-md flex items-center gap-2 border ${selectedId ? 'bg-red-950/20 text-red-500 border-red-900/50 hover:bg-red-900/20' : 'bg-fondo/50 text-gray-500 border-fondo-borde cursor-not-allowed'}`}
+        >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            Eliminar Seleccionado
+        </button>
+      </div>
+
+      {/* Tabla */}
+      <div className="overflow-x-auto w-full">
+        <table className="w-full text-left text-sm whitespace-nowrap">
+          <thead className="bg-fondo/80 text-gray-400 border-b border-fondo-borde">
+            <tr>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Nombre y Apellidos</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">DNI</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Contacto</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Sueldo</th>
+              <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Rango</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-fondo-borde">
+            {empleados.map(emp => (
+              <tr 
+                key={emp.id} 
+                onClick={() => setSelectedId(selectedId === emp.id ? null : emp.id)}
+                className={`transition-colors cursor-pointer ${selectedId === emp.id ? 'bg-mostaza/10' : 'hover:bg-fondo/60'}`}
+              >
+                <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-white">{emp.nombre} {emp.apellidos}</span>
+                    </div>
+                </td>
+                <td className="px-6 py-4 text-gray-300 font-mono text-xs">
+                    {emp.dni}
+                </td>
+                <td className="px-6 py-4">
+                    <div className="flex flex-col text-xs gap-1">
+                      <span className="text-gray-300">{emp.correo}</span>
+                      <span className="text-mostaza/70">{emp.telefono}</span>
+                    </div>
+                </td>
+                <td className="px-6 py-4 font-bold text-white">
+                    {emp.sueldo.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                </td>
+                <td className="px-6 py-4">
+                  <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold uppercase bg-fondo border border-fondo-borde text-gray-300">
+                    {emp.rango}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {empleados.length === 0 && (
+                <tr>
+                    <td colSpan="5" className="text-center py-16 px-4 text-gray-500">
+                        No hay empleados registrados.
+                    </td>
+                </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal Añadir/Editar */}
+      {modal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="absolute inset-0" onClick={() => setModal({ ...modal, show: false })}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-2xl p-8 text-white animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+                <h3 className="text-xl font-bold text-white mb-6">{modal.mode === 'edit' ? 'Editar Empleado' : 'Nuevo Empleado'}</h3>
+                <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Nombre</label>
+                        <input required type="text" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Apellidos</label>
+                        <input required type="text" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">DNI</label>
+                        <input required type="text" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Correo Electrónico</label>
+                        <input required type="email" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.correo} onChange={e => setFormData({...formData, correo: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Teléfono</label>
+                        <input type="text" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Sueldo Bruto Mensual</label>
+                        <input required type="number" step="0.01" className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={formData.sueldo} onChange={e => setFormData({...formData, sueldo: parseFloat(e.target.value) || 0})} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Rango / Puesto</label>
+                        <select className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none appearance-none" value={formData.rango} onChange={e => setFormData({...formData, rango: e.target.value})}
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                        >
+                            <option className="bg-fondo text-white" value="camarero">Camarero</option>
+                            <option className="bg-fondo text-white" value="jefe de sala">Jefe de Sala</option>
+                            <option className="bg-fondo text-white" value="jefe de cocina">Jefe de Cocina</option>
+                            <option className="bg-fondo text-white" value="ayudante de cocina">Ayudante de Cocina</option>
+                            <option className="bg-fondo text-white" value="cocinero">Cocinero</option>
+                            <option className="bg-fondo text-white" value="jefe">Jefe / Gerente</option>
+                        </select>
+                    </div>
+                    
+                    <div className="md:col-span-2 pt-6 flex gap-3">
+                        <button type="button" onClick={() => setModal({ ...modal, show: false })} className="flex-1 py-3 px-4 bg-transparent border border-fondo-borde text-gray-300 font-medium rounded-xl hover:bg-fondo transition-colors">Cancelar</button>
+                        <button type="submit" className="flex-1 py-3 px-4 bg-mostaza text-black font-bold rounded-xl hover:bg-mostaza-hover transition-colors shadow-lg shadow-mostaza/20">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Confirmar Borrado */}
+      {deleteModal && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="absolute inset-0" onClick={() => setDeleteModal(false)}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-w-sm p-8 text-center text-white animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+                <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center mx-auto mb-4 border border-red-900/50">
+                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Baja de Empleado</h3>
+                <p className="text-sm text-gray-400 mb-6">¿Estás seguro de que quieres eliminar al empleado seleccionado? Esta acción es irreversible.</p>
+                <div className="flex gap-3">
+                    <button onClick={() => setDeleteModal(false)} className="flex-1 py-2.5 bg-fondo border border-fondo-borde text-gray-300 font-medium rounded-xl hover:bg-fondo-borde transition-colors">Cancelar</button>
+                    <button onClick={confirmDelete} className="flex-1 py-2.5 bg-mostaza text-black font-bold rounded-xl hover:bg-mostaza-hover transition-colors">Confirmar Baja</button>
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Toasts */}
+      {toast.show && (
+        <div className={`fixed bottom-6 right-6 lg:bottom-8 lg:right-8 px-5 py-3.5 rounded-xl shadow-2xl text-white transform transition-all duration-300 z-50 flex items-center gap-3 ${toast.type === 'success' ? 'bg-fondo-tarjeta border border-mostaza shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-fondo-tarjeta border border-red-500'}`}>
+          {toast.type === 'success' ? (
+              <div className="w-6 h-6 rounded-full bg-mostaza/20 text-mostaza flex items-center justify-center shrink-0 border border-mostaza/30">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+              </div>
+          ) : (
+              <div className="w-6 h-6 rounded-full bg-red-950/30 text-red-500 flex items-center justify-center shrink-0 border border-red-900/50">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              </div>
+          )}
+          <span className="font-medium text-sm text-white">{toast.message}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GastosModule() {
+  const [gastos, setGastos] = useState([]);
+  const [resumen, setResumen] = useState({ totalBruto: 0, totalNeto: 0, totalInventario: 0 });
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [modal, setModal] = useState({ show: false, editingGasto: null });
+  const [formData, setFormData] = useState({ 
+    tipo: 'Fijo', 
+    descripcion: 'Alquiler', 
+    monto: 0, 
+    fecha: new Date().toISOString().split('T')[0] 
+  });
+  
+  const [deleteModal, setDeleteModal] = useState({ show: false, id: null, desc: '' });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [resGastos, resResumen] = await Promise.all([
+        axios.get(`${API_URL}/api/gastos`, { headers }),
+        axios.get(`${API_URL}/api/gastos/resumen`, { headers })
+      ]);
+      setGastos(resGastos.data);
+      setResumen(resResumen.data);
+    } catch (error) {
+      console.error(error);
+      showToast('Error al cargar datos financieros', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      if (modal.editingGasto) {
+        await axios.put(`${API_URL}/api/gastos/${modal.editingGasto}`, { ...formData, id: modal.editingGasto }, { headers });
+      } else {
+        await axios.post(`${API_URL}/api/gastos`, formData, { headers });
+      }
+      setModal({ show: false, editingGasto: null });
+      fetchData();
+      showToast('Gasto guardado correctamente', 'success');
+    } catch (error) {
+      showToast('Error al guardar el gasto', 'error');
+    }
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/gastos/${deleteModal.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDeleteModal({ show: false, id: null, desc: '' });
+      fetchData();
+      showToast('Gasto eliminado', 'success');
+    } catch (error) {
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  if (loading) return (
+    <div className="h-64 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
+        <span className="text-sm font-medium text-gray-400 animate-pulse">Calculando balances...</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Resumen Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl">
+          <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Nóminas Mensuales</span>
+          <div className="mt-2 flex flex-col">
+            <span className="text-2xl font-black text-white">{resumen.totalBruto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} <span className="text-xs text-gray-500 font-normal">Bruto</span></span>
+            <span className="text-mostaza font-bold">{resumen.totalNeto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} <span className="text-xs text-mostaza/60 font-normal">Neto Est.</span></span>
+          </div>
+        </div>
+
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl">
+          <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Valor Total Inventario</span>
+          <div className="mt-2">
+            <span className="text-2xl font-black text-white">{resumen.totalInventario.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+            <p className="text-xs text-gray-500 mt-1">Coste acumulado de existencias</p>
+          </div>
+        </div>
+
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl flex flex-col justify-center">
+            <button 
+                onClick={() => {
+                    setFormData({ tipo: 'Fijo', descripcion: 'Alquiler', monto: 0, fecha: new Date().toISOString().split('T')[0] });
+                    setModal({ show: true, editingGasto: null });
+                }}
+                className="w-full bg-mostaza text-black font-black py-4 rounded-2xl hover:bg-mostaza-hover transition-all shadow-lg shadow-mostaza/20 flex items-center justify-center gap-2"
+            >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                Registrar Nuevo Gasto
+            </button>
+        </div>
+      </div>
+
+      {/* Tabla de Gastos */}
+      <div className="bg-fondo-tarjeta rounded-3xl shadow-sm border border-fondo-borde overflow-hidden">
+        <div className="p-6 border-b border-fondo-borde">
+            <h3 className="text-lg font-bold text-white">Listado de Gastos Operativos</h3>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-fondo/80 text-gray-400 uppercase text-xs font-bold">
+                    <tr>
+                        <th className="px-6 py-4">Concepto</th>
+                        <th className="px-6 py-4">Tipo</th>
+                        <th className="px-6 py-4">Fecha</th>
+                        <th className="px-6 py-4">Monto</th>
+                        <th className="px-6 py-4 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-fondo-borde">
+                    {gastos.map(g => (
+                        <tr key={g.id} className="hover:bg-fondo/50 transition-colors">
+                            <td className="px-6 py-4 font-semibold text-white">{g.descripcion}</td>
+                            <td className="px-6 py-4">
+                                <span className="px-2 py-1 rounded-lg bg-fondo text-gray-400 border border-fondo-borde text-[10px] font-bold uppercase">{g.tipo}</span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-400">{new Date(g.fecha).toLocaleDateString()}</td>
+                            <td className="px-6 py-4 font-black text-white">{g.monto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                            <td className="px-6 py-4 text-right space-x-3">
+                                <button onClick={() => {
+                                    setFormData({ ...g, fecha: g.fecha.split('T')[0] });
+                                    setModal({ show: true, editingGasto: g.id });
+                                }} className="text-mostaza hover:text-white transition-colors">Editar</button>
+                                <button onClick={() => setDeleteModal({ show: true, id: g.id, desc: g.descripcion })} className="text-red-500 hover:text-red-400 transition-colors">Eliminar</button>
+                            </td>
+                        </tr>
+                    ))}
+                    {gastos.length === 0 && (
+                        <tr>
+                            <td colSpan="5" className="text-center py-10 text-gray-500 italic">No hay gastos registrados.</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+      {/* Modal Añadir/Editar */}
+      {modal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="absolute inset-0" onClick={() => setModal({ show: false, editingGasto: null })}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl shadow-2xl relative z-10 w-full max-md p-8">
+                <h3 className="text-xl font-bold text-white mb-6">{modal.editingGasto ? 'Editar Gasto' : 'Nuevo Registro de Gasto'}</h3>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Concepto / Descripción</label>
+                        <select 
+                            className="w-full px-4 py-3 bg-transparent border border-fondo-borde rounded-xl text-white outline-none focus:ring-2 focus:ring-mostaza appearance-none"
+                            value={formData.descripcion}
+                            onChange={e => setFormData({...formData, descripcion: e.target.value})}
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+                        >
+                            <option className="bg-fondo text-white" value="Alquiler">🏠 Alquiler</option>
+                            <option className="bg-fondo text-white" value="Luz">💡 Luz</option>
+                            <option className="bg-fondo text-white" value="Agua">🚰 Agua</option>
+                            <option className="bg-fondo text-white" value="Gas">🔥 Gas</option>
+                            <option className="bg-fondo text-white" value="Reparaciones">🛠️ Reparaciones Maquinaria</option>
+                            <option className="bg-fondo text-white" value="Suministros">📦 Suministros Varios</option>
+                            <option className="bg-fondo text-white" value="Marketing">📣 Marketing</option>
+                            <option className="bg-fondo text-white" value="Otros">❓ Otros</option>
+                        </select>
+                        {formData.descripcion === 'Otros' && (
+                             <input 
+                                type="text" 
+                                placeholder="Especifique el concepto..."
+                                className="w-full mt-2 px-4 py-3 bg-transparent border border-fondo-borde rounded-xl text-white outline-none focus:ring-2 focus:ring-mostaza"
+                                onChange={e => setFormData({...formData, descripcion: e.target.value})}
+                            />
+                        )}
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Monto (€)</label>
+                            <input required type="number" step="0.01" className="w-full px-4 py-3 bg-transparent border border-fondo-borde rounded-xl text-white outline-none focus:ring-2 focus:ring-mostaza" value={formData.monto} onChange={e => setFormData({...formData, monto: parseFloat(e.target.value) || 0})} />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha</label>
+                            <input required type="date" className="w-full px-4 py-3 bg-transparent border border-fondo-borde rounded-xl text-white outline-none focus:ring-2 focus:ring-mostaza" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
+                        </div>
+                    </div>
+                    <div className="pt-6 flex gap-3">
+                        <button type="button" onClick={() => setModal({ show: false, editingGasto: null })} className="flex-1 py-3 text-gray-400 font-bold">Cancelar</button>
+                        <button type="submit" className="flex-1 py-3 bg-mostaza text-black font-black rounded-xl hover:bg-mostaza-hover transition-colors">Guardar Gasto</button>
+                    </div>
+                </form>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Borrado */}
+      {deleteModal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="absolute inset-0" onClick={() => setDeleteModal({ show: false, id: null, desc: '' })}></div>
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-3xl p-8 max-w-sm text-center">
+                <h3 className="text-xl font-bold text-white mb-2">¿Eliminar registro?</h3>
+                <p className="text-gray-400 text-sm mb-6">Vas a eliminar el gasto de <strong className="text-white">"{deleteModal.desc}"</strong>.</p>
+                <div className="flex gap-3">
+                    <button onClick={() => setDeleteModal({ show: false, id: null, desc: '' })} className="flex-1 py-3 text-gray-400 font-bold">No, cancelar</button>
+                    <button onClick={confirmDelete} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors">Sí, eliminar</button>
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Toasts */}
+      {toast.show && (
+        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl text-white z-50 flex items-center gap-3 animate-in slide-in-from-right-10 ${toast.type === 'success' ? 'bg-fondo-tarjeta border border-mostaza' : 'bg-fondo-tarjeta border border-red-500'}`}>
+            <span className="font-bold">{toast.message}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinanzasModule({ exportToPDF }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchData();
+  }, [year]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/api/finanzas/resumen-anual?year=${year}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setData(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalIngresos = data.reduce((acc, curr) => acc + curr.ingresos, 0);
+  const totalGastos = data.reduce((acc, curr) => acc + curr.gastos, 0);
+  const balanceTotal = totalIngresos - totalGastos;
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-4 rounded-xl shadow-2xl backdrop-blur-md">
+          <p className="text-white font-bold mb-2">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm flex justify-between gap-4" style={{ color: entry.color }}>
+              <span>{entry.name}:</span>
+              <span className="font-mono">{entry.value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (loading) return (
+    <div className="h-96 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
+        <span className="text-sm font-medium text-gray-400 animate-pulse">Generando reporte anual...</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Header Finanzas */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h3 className="text-xl font-bold text-white">Análisis de Rendimiento</h3>
+            <p className="text-sm text-gray-400">Comparativa de ingresos y gastos operativos</p>
+        </div>
+        <div className="flex items-center gap-3">
+            <select 
+                className="bg-fondo-tarjeta border border-fondo-borde text-white px-4 py-2 rounded-xl outline-none focus:ring-2 focus:ring-mostaza"
+                value={year}
+                onChange={e => setYear(parseInt(e.target.value))}
+            >
+                {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <button 
+                onClick={exportToPDF}
+                className="bg-mostaza/10 text-mostaza border border-mostaza/20 hover:bg-mostaza/20 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                PDF
+            </button>
+        </div>
+      </div>
+
+      {/* Stats Quick View */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <svg className="w-16 h-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <span className="text-gray-400 text-xs font-bold uppercase">Ingresos Totales</span>
+            <div className="text-2xl font-black text-white mt-1">{totalIngresos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</div>
+            <div className="text-xs text-green-500 mt-1">Facturación anual acumulada</div>
+        </div>
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <svg className="w-16 h-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <span className="text-gray-400 text-xs font-bold uppercase">Gastos Totales</span>
+            <div className="text-2xl font-black text-white mt-1">{totalGastos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</div>
+            <div className="text-xs text-red-500 mt-1">Incluye nóminas y gastos fijos</div>
+        </div>
+        <div className={`border p-6 rounded-3xl relative overflow-hidden group ${balanceTotal >= 0 ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+            <span className="text-gray-400 text-xs font-bold uppercase">Balance Neto</span>
+            <div className={`text-2xl font-black mt-1 ${balanceTotal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{balanceTotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</div>
+            <div className="text-xs text-gray-500 mt-1">{balanceTotal >= 0 ? 'Rentabilidad positiva' : 'Pérdida neta acumulada'}</div>
+        </div>
+      </div>
+
+      {/* Main Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Income vs Expenses Chart */}
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl">
+            <h4 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-wider">Comparativa Mensual</h4>
+            <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                        <XAxis dataKey="mes" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v/1000}k`} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                        <Legend iconType="circle" />
+                        <Bar dataKey="ingresos" name="Ingresos" fill="#eab308" radius={[4, 4, 0, 0]} barSize={20} />
+                        <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} opacity={0.6} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
+        {/* Profit Trend Chart */}
+        <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl">
+            <h4 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-wider">Tendencia de Beneficios</h4>
+            <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data}>
+                        <defs>
+                            <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#eab308" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                        <XAxis dataKey="mes" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="balance" name="Balance Neto" stroke="#eab308" strokeWidth={3} fillOpacity={1} fill="url(#colorBalance)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+      </div>
+
+      {/* Breakdown Table */}
+      <div className="bg-fondo-tarjeta rounded-3xl border border-fondo-borde overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-fondo-borde flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">Desglose Detallado</h3>
+            <span className="text-xs text-gray-500 italic">Valores expresados en EUR</span>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-fondo/80 text-gray-400 text-xs font-bold uppercase">
+                    <tr>
+                        <th className="px-6 py-4">Mes</th>
+                        <th className="px-6 py-4">Ingresos</th>
+                        <th className="px-6 py-4">Gastos</th>
+                        <th className="px-6 py-4">Balance</th>
+                        <th className="px-6 py-4">Estado</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-fondo-borde">
+                    {data.map((m, i) => (
+                        <tr key={i} className="hover:bg-fondo/40 transition-colors">
+                            <td className="px-6 py-4 font-bold text-white">{m.mes}</td>
+                            <td className="px-6 py-4 text-gray-300">{m.ingresos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                            <td className="px-6 py-4 text-gray-300">{m.gastos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                            <td className={`px-6 py-4 font-black ${m.balance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {m.balance.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                            </td>
+                            <td className="px-6 py-4">
+                                {m.balance >= 0 ? (
+                                    <span className="flex items-center gap-1.5 text-green-500 text-xs font-bold uppercase">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                        Ganancia
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1.5 text-red-500 text-xs font-bold uppercase">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                        Pérdida
+                                    </span>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+      </div>
     </div>
   );
 }
