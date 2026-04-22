@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.ComponentModel.DataAnnotations;
 // using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
@@ -94,11 +95,32 @@ namespace backend.Controllers
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var jwtString = tokenHandler.WriteToken(token);
 
-            // Devolvemos el token en el body (para uso en Authorization header)
+            Response.Cookies.Append("jwt", jwtString, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddHours(2)
+            });
+
             return Ok(new { 
-                token = jwtString,
                 usuario = new { user.Id, user.Nombre, user.Email, user.FotoPerfil, user.Rol } 
             });
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMe()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+                return Unauthorized();
+
+            var user = await _context.Usuarios.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return Unauthorized();
+
+            return Ok(new { user.Id, user.Nombre, user.Email, user.FotoPerfil, user.Rol });
         }
 
         [HttpPost("logout")]
@@ -214,6 +236,8 @@ namespace backend.Controllers
         public string Nombre { get; set; }
         public string Email { get; set; }
         public string Password { get; set; }
+        
+        [RegularExpression(@"^(\+34|0034|34)?[6789]\d{8}$", ErrorMessage = "El teléfono debe ser un número válido español de 9 dígitos (ej. 600123456) con o sin prefijo +34")]
         public string? Telefono { get; set; }
     }
 

@@ -7,11 +7,24 @@ export default function Registro() {
     const [email, setEmail] = useState('');
     const [telefono, setTelefono] = useState('');
     const [password, setPassword] = useState('');
+    const [errorTelefono, setErrorTelefono] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    const handleTelefonoChange = (e) => {
+        const val = e.target.value.replace(/[^\d+]/g, '');
+        setTelefono(val);
+        const regex = /^(\+34|0034|34)?[6789]\d{8}$/;
+        if (val && !regex.test(val)) {
+            setErrorTelefono('Formato inválido. Ej: 600123456 o +34600123456');
+        } else {
+            setErrorTelefono('');
+        }
+    };
+
     const handleRegister = async (e) => {
         e.preventDefault();
+        if (errorTelefono) return;
         try {
             await axios.post('http://localhost:5105/api/auth/registro', { nombre, email, telefono, password });
             navigate('/');
@@ -59,11 +72,14 @@ export default function Registro() {
                         <label className="block text-sm font-medium text-gray-300">Teléfono</label>
                         <input
                             type="tel"
-                            className="mt-1 block w-full px-4 py-3 bg-fondo border border-fondo-borde text-white rounded-xl outline-none focus:ring-2 focus:ring-mostaza focus:border-mostaza transition"
+                            className={`mt-1 block w-full px-4 py-3 bg-fondo border text-white rounded-xl outline-none focus:ring-2 focus:ring-mostaza focus:border-mostaza transition ${errorTelefono ? 'border-red-500' : 'border-fondo-borde'}`}
                             value={telefono}
-                            onChange={(e) => setTelefono(e.target.value)}
+                            onChange={handleTelefonoChange}
+                            pattern="^(\+34|0034|34)?[6789]\d{8}$"
+                            title="El teléfono debe ser un número válido español de 9 dígitos (ej. 600123456) con o sin prefijo +34"
                             required
                         />
+                        {errorTelefono && <p className="text-red-500 text-xs mt-1">{errorTelefono}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300">Contraseña</label>

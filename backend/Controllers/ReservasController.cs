@@ -10,6 +10,7 @@ using System.IO;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using Microsoft.AspNetCore.SignalR;
 
 namespace backend.Controllers
 {
@@ -19,11 +20,13 @@ namespace backend.Controllers
     {
         private readonly U374392370ReservasContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IHubContext<RestauranteHub> _hubContext;
 
-        public ReservasController(U374392370ReservasContext context, IConfiguration configuration)
+        public ReservasController(U374392370ReservasContext context, IConfiguration configuration, IHubContext<RestauranteHub> hubContext)
         {
             _context = context;
             _configuration = configuration;
+            _hubContext = hubContext;
         }
 
         [HttpGet("disponibles")]
@@ -101,6 +104,7 @@ namespace backend.Controllers
             try 
             {
                 await _context.SaveChangesAsync();
+                await _hubContext.Clients.All.SendAsync("ActualizarDatos");
                 return Ok(new { reservaId = reserva.Id });
             }
             catch (DbUpdateException)
@@ -130,6 +134,7 @@ namespace backend.Controllers
             reserva.FechaExpiracionLock = null; 
 
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("ActualizarDatos");
 
             return Ok(new { message = "Reserva confirmada con éxito" });
         }
@@ -226,6 +231,7 @@ namespace backend.Controllers
             }
 
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("ActualizarDatos");
             return Ok(new { message = "Estado actualizado", estado = reserva.Estado });
         }
 
@@ -243,6 +249,7 @@ namespace backend.Controllers
 
             _context.Reservas.Remove(reserva);
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("ActualizarDatos");
 
             return Ok(new { message = "Reserva cancelada con éxito." });
         }
@@ -260,6 +267,7 @@ namespace backend.Controllers
             {
                 _context.Reservas.Remove(reserva);
                 await _context.SaveChangesAsync();
+                await _hubContext.Clients.All.SendAsync("ActualizarDatos");
             }
 
             return Ok(new { message = "Mesa liberada correctamente" });
@@ -308,6 +316,7 @@ namespace backend.Controllers
             // Si era Pendiente y la modifica, también la pasaremos a confirmada si ya completó su pago original, o la dejamos igual
             
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("ActualizarDatos");
             return Ok(new { message = "Reserva modificada con éxito", reservaId = reserva.Id });
         }
 

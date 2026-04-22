@@ -1,3 +1,4 @@
+using backend;
 using backend.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -126,5 +128,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<RestauranteHub>("/restauranteHub");
 
 app.Run();

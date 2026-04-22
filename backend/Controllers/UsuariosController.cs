@@ -8,6 +8,7 @@ using System.IO;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace backend.Controllers
 {
@@ -126,6 +127,8 @@ namespace backend.Controllers
     public class UpdatePerfilDto
     {
         public string Nombre { get; set; } = null!;
+        
+        [RegularExpression(@"^(\+34|0034|34)?[6789]\d{8}$", ErrorMessage = "El teléfono debe ser un número válido español de 9 dígitos (ej. 600123456) con o sin prefijo +34")]
         public string? Telefono { get; set; }
         public string? FotoPerfil { get; set; }
     }

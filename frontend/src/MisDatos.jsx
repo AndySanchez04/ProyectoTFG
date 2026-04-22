@@ -10,6 +10,7 @@ export default function MisDatos() {
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [telefono, setTelefono] = useState('');
+    const [errorTelefono, setErrorTelefono] = useState('');
     const [fotoPerfil, setFotoPerfil] = useState('');
     const [mensaje, setMensaje] = useState('');
     const [subiendo, setSubiendo] = useState(false);
@@ -85,8 +86,20 @@ export default function MisDatos() {
         }
     };
 
+    const handleTelefonoChange = (e) => {
+        const val = e.target.value.replace(/[^\d+]/g, '');
+        setTelefono(val);
+        const regex = /^(\+34|0034|34)?[6789]\d{8}$/;
+        if (val && !regex.test(val)) {
+            setErrorTelefono('Formato inválido. Ej: 600123456 o +34600123456');
+        } else {
+            setErrorTelefono('');
+        }
+    };
+
     const handleUpdatePerfil = async (e) => {
         e.preventDefault();
+        if (errorTelefono) return;
         try {
             await axios.put('http://localhost:5105/api/usuarios/perfil',
                 { nombre, telefono, fotoPerfil }
@@ -187,11 +200,14 @@ export default function MisDatos() {
                                     <label className="block text-sm font-bold text-gray-400 mb-2">Teléfono</label>
                                     <input
                                         type="tel"
-                                        className="block w-full px-5 py-4 bg-fondo border border-fondo-borde text-white rounded-2xl outline-none focus:ring-2 focus:ring-mostaza focus:bg-fondo transition"
+                                        className={`block w-full px-5 py-4 bg-fondo border text-white rounded-2xl outline-none focus:ring-2 focus:ring-mostaza focus:bg-fondo transition ${errorTelefono ? 'border-red-500' : 'border-fondo-borde'}`}
                                         value={telefono}
-                                        onChange={(e) => setTelefono(e.target.value)}
+                                        onChange={handleTelefonoChange}
+                                        pattern="^(\+34|0034|34)?[6789]\d{8}$"
+                                        title="El teléfono debe ser un número válido español de 9 dígitos (ej. 600123456) con o sin prefijo +34"
                                         required
                                     />
+                                    {errorTelefono && <p className="text-red-500 text-xs mt-1">{errorTelefono}</p>}
                                 </div>
                             </div>
 

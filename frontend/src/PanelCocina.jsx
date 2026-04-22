@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 export default function PanelCocina() {
   const navigate = useNavigate();
@@ -36,9 +37,33 @@ export default function PanelCocina() {
 
   useEffect(() => {
     fetchTicketsCocina();
-    // Podríamos recargar cada X segundos si hubiese necesidad
-    const intervalId = setInterval(fetchTicketsCocina, 5000); // Polling cada 5s
-    return () => clearInterval(intervalId);
+    
+    const connection = new HubConnectionBuilder()
+      .withUrl('http://localhost:5105/restauranteHub', { withCredentials: true })
+      .withAutomaticReconnect([0, 2000, 10000, 30000]) // Intentos a 0s, 2s, 10s, 30s
+      .configureLogging(LogLevel.Information)
+      .build();
+
+    connection.on('ActualizarDatos', () => {
+      fetchTicketsCocina();
+      // Si mostrarHistorial fuera dependiente podríamos llamar fetchHistorial()
+    });
+
+    const startConnection = async () => {
+      try {
+        await connection.start();
+        console.log("SignalR Connected in PanelCocina.");
+      } catch (err) {
+        console.error("SignalR Connection Error: ", err);
+        setTimeout(startConnection, 5000);
+      }
+    };
+
+    startConnection();
+
+    return () => {
+      connection.stop();
+    };
   }, []);
 
   const handleLogout = async () => {

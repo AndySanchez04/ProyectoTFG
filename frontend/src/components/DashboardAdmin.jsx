@@ -19,6 +19,7 @@ export default function DashboardAdmin() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
+        if (!token.includes('.')) throw new Error("Invalid token format");
         const payload = JSON.parse(atob(token.split('.')[1]));
         const id = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] 
                 || payload.nameid || payload.sub;
@@ -543,12 +544,24 @@ function MenuModule() {
   });
   
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, nombre: '' });
+  const [categoriasList, setCategoriasList] = useState([]);
+  const [categoriasModal, setCategoriasModal] = useState({ show: false, newName: '' });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
   useEffect(() => {
     fetchProductos();
+    fetchCategorias();
   }, []);
+
+  const fetchCategorias = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/categorias`);
+      setCategoriasList(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchProductos = async () => {
     try {
@@ -614,6 +627,38 @@ function MenuModule() {
     }
   };
 
+  const handleAddCategoria = async (e) => {
+    e.preventDefault();
+    if (!categoriasModal.newName.trim()) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/categorias`, 
+        { nombre: categoriasModal.newName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showToast('Categoría añadida', 'success');
+      setCategoriasModal({ ...categoriasModal, newName: '' });
+      fetchCategorias();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al añadir categoría', 'error');
+    }
+  };
+
+  const handleDeleteCategoria = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/categorias/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Categoría eliminada', 'success');
+      fetchCategorias();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al eliminar categoría', 'error');
+    }
+  };
+
   if (loading) return (
     <div className="h-64 flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
@@ -625,15 +670,23 @@ function MenuModule() {
     <div className="bg-fondo-tarjeta rounded-2xl shadow-sm border border-fondo-borde overflow-hidden">
       <div className="p-5 sm:p-6 border-b border-fondo-borde flex justify-between items-center bg-fondo-tarjeta z-20 relative">
         <h3 className="text-lg font-bold text-white">Gestión de Carta</h3>
-        <button 
-            onClick={openAddModal}
-            className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-md flex items-center gap-2"
-        >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-            </svg>
-            Añadir Producto
-        </button>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => setCategoriasModal({ show: true, newName: '' })}
+                className="bg-fondo text-gray-300 font-bold py-2.5 px-4 rounded-xl text-sm transition-colors border border-fondo-borde hover:bg-fondo-borde flex items-center gap-2"
+            >
+                Gestionar Categorías
+            </button>
+            <button 
+                onClick={openAddModal}
+                className="bg-mostaza hover:bg-mostaza-hover text-black font-bold py-2.5 px-5 rounded-xl text-sm transition-colors shadow-md flex items-center gap-2"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+                Añadir Producto
+            </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto w-full">
@@ -716,19 +769,9 @@ function MenuModule() {
                             <select className="w-full px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none appearance-none" value={formData.categoria} onChange={e => setFormData({...formData, categoria: e.target.value})}
                               style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23eab308' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
                             >
-                                <option className="bg-fondo text-white" value="Entrante">Entrante</option>
-                                <option className="bg-fondo text-white" value="Principal">Principal</option>
-                                <option className="bg-fondo text-white" value="Bebida">Bebida</option>
-                                <option className="bg-fondo text-white" value="MenuDiario">Menu Diario</option>
-                                <option className="bg-fondo text-white" value="Postres">Postres</option>
-                                <option className="bg-fondo text-white" value="Tacos">Tacos</option>
-                                <option className="bg-fondo text-white" value="Hamburguesas">Hamburguesas</option>
-                                <option className="bg-fondo text-white" value="Nachos">Nachos</option>
-                                <option className="bg-fondo text-white" value="Raciones">Raciones</option>
-                                <option className="bg-fondo text-white" value="Cervezas">Cervezas</option>
-                                <option className="bg-fondo text-white" value="Refrescos">Refrescos</option>
-                                <option className="bg-fondo text-white" value="Cócteles">Cócteles</option>
-                                <option className="bg-fondo text-white" value="Especialidades">Especialidades</option>
+                                {categoriasList.map(cat => (
+                                    <option key={cat.id} className="bg-fondo text-white" value={cat.nombre}>{cat.nombre}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -781,6 +824,40 @@ function MenuModule() {
           <span className="font-medium text-sm text-white">{toast.message}</span>
         </div>
       )}
+
+      {/* Modal Categorías */}
+      {categoriasModal.show && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-fondo-tarjeta border border-fondo-borde rounded-2xl p-6 w-full max-w-md shadow-xl relative animate-fadeIn">
+                <button onClick={() => setCategoriasModal({ show: false, newName: '' })} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 className="text-xl font-bold text-white mb-4">Gestionar Categorías</h3>
+                
+                <form onSubmit={handleAddCategoria} className="flex gap-2 mb-6">
+                    <input required type="text" placeholder="Nueva categoría..." className="flex-1 px-4 py-2 bg-transparent border border-fondo-borde rounded-xl text-sm text-white focus:ring-2 focus:ring-mostaza outline-none" value={categoriasModal.newName} onChange={e => setCategoriasModal({...categoriasModal, newName: e.target.value})} />
+                    <button type="submit" className="bg-mostaza text-black font-bold py-2 px-4 rounded-xl text-sm transition-colors shadow-md hover:bg-mostaza-hover">Añadir</button>
+                </form>
+
+                <div className="max-h-64 overflow-y-auto pr-2 space-y-2">
+                    {categoriasList.length === 0 ? (
+                        <p className="text-gray-400 text-sm text-center py-4">No hay categorías disponibles.</p>
+                    ) : (
+                        categoriasList.map(cat => (
+                            <div key={cat.id} className="flex justify-between items-center p-3 rounded-xl bg-fondo/50 border border-fondo-borde">
+                                <span className="text-white text-sm font-medium">{cat.nombre}</span>
+                                <button onClick={() => handleDeleteCategoria(cat.id)} className="text-red-400 hover:text-red-300 transition-colors">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }

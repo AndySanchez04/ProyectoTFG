@@ -23,6 +23,7 @@ public partial class U374392370ReservasContext : DbContext
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     public virtual DbSet<ProductoMenu> ProductoMenus { get; set; }
+    public virtual DbSet<CategoriaMenu> CategoriasMenu { get; set; }
     public virtual DbSet<Comanda> Comandas { get; set; }
     public virtual DbSet<LineaComanda> LineasComanda { get; set; }
     public virtual DbSet<ArticuloInventario> ArticulosInventario { get; set; }

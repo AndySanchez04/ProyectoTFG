@@ -134,8 +134,7 @@ export default function Reservas() {
                 await axios.put(`http://localhost:5105/api/reservas/${modifyingReservaId}`,
                     { mesaId: selectedMesaId, fecha, horaInicio: `${hora}:00`, numPersonas: parseInt(personas) }
                 );
-                alert('¡Reserva modificada con éxito!');
-                navigate('/mis-datos');
+                setPaso(7);
             } else {
                 await axios.post(`http://localhost:5105/api/reservas/ConfirmarReserva/${reservaId}`,
                     {}
@@ -201,7 +200,7 @@ export default function Reservas() {
         doc.setFont(undefined, 'bold');
         doc.text('Cliente:', 20, startY + lineSpacing);
         doc.setFont(undefined, 'normal');
-        doc.text(userName, 70, startY + lineSpacing);
+        doc.text(`${userName} (${userPhone})`, 70, startY + lineSpacing);
         
         doc.setFont(undefined, 'bold');
         doc.text('Fecha y Hora:', 20, startY + lineSpacing * 2);
@@ -242,7 +241,7 @@ export default function Reservas() {
     const generatePDF = async () => {
         try {
             const doc = await generatePDFContent();
-            doc.save(`Reserva_MildLimon_${reservaId}.pdf`);
+            doc.save(`Reserva_MildLimon_${reservaId || modifyingReservaId}.pdf`);
         } catch (error) {
             console.error('Error generando PDF:', error);
         }
@@ -255,7 +254,7 @@ export default function Reservas() {
             const pdfBase64 = doc.output('datauristring');
 
             await axios.post('http://localhost:5105/api/reservas/enviar-justificante', {
-                IdReserva: reservaId,
+                IdReserva: reservaId || modifyingReservaId,
                 PdfBase64: pdfBase64
             });
 
@@ -504,7 +503,11 @@ export default function Reservas() {
                             <div className="bg-fondo-tarjeta/40 border border-fondo-borde rounded-3xl p-6 mb-8 text-left space-y-4 max-w-sm mx-auto shadow-xl">
                                 <div className="flex justify-between border-b border-white/5 pb-2">
                                     <span className="text-gray-500 text-xs font-bold uppercase">Código</span>
-                                    <span className="text-white font-mono font-bold">#{reservaId}</span>
+                                    <span className="text-white font-mono font-bold">#{reservaId || modifyingReservaId}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-white/5 pb-2">
+                                    <span className="text-gray-500 text-xs font-bold uppercase">Teléfono</span>
+                                    <span className="text-white font-bold">{userPhone}</span>
                                 </div>
                                 <div className="flex justify-between border-b border-white/5 pb-2">
                                     <span className="text-gray-500 text-xs font-bold uppercase">Fecha</span>

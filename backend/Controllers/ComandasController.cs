@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
 using System.Security.Claims;
+using Microsoft.AspNetCore.SignalR;
 
 namespace backend.Controllers;
 
@@ -13,10 +14,12 @@ namespace backend.Controllers;
 public class ComandasController : ControllerBase
 {
     private readonly U374392370ReservasContext _context;
+    private readonly IHubContext<RestauranteHub> _hubContext;
 
-    public ComandasController(U374392370ReservasContext context)
+    public ComandasController(U374392370ReservasContext context, IHubContext<RestauranteHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     // GET: api/comandas/bebidas-pendientes
@@ -195,6 +198,7 @@ public class ComandasController : ControllerBase
         try
         {
             await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("ActualizarDatos");
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -273,6 +277,7 @@ public class ComandasController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _hubContext.Clients.All.SendAsync("ActualizarDatos");
 
         return CreatedAtAction(nameof(GetBebidasPendientes), new { id = nuevaComanda.Id }, new { mensaje = "Comanda creada exitosamente", comandaId = nuevaComanda.Id });
     }
