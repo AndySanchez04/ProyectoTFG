@@ -21,11 +21,20 @@ public class FinanzasController : ControllerBase
     [HttpGet("resumen-anual")]
     public async Task<ActionResult<IEnumerable<object>>> GetResumenAnual(int year)
     {
-        // 1. Obtener ingresos mensuales de Facturas
-        var ingresosMensuales = await _context.Facturas
-            .Where(f => f.FechaEmision.Year == year)
-            .GroupBy(f => f.FechaEmision.Month)
-            .Select(g => new { Mes = g.Key, Total = g.Sum(f => f.Total) })
+        // 1. Obtener ingresos mensuales directamente de las Comandas (sumando sus líneas)
+        // Usamos rangos de fecha para mayor compatibilidad con proveedores de DB
+        var startDate = new DateTime(year, 1, 1);
+        var endDate = startDate.AddYears(1);
+
+        var ingresosMensuales = await _context.LineasComanda
+            .Include(l => l.Comanda)
+            .Where(l => l.Comanda.FechaHora >= startDate && l.Comanda.FechaHora < endDate)
+            .GroupBy(l => l.Comanda.FechaHora.Month)
+            .Select(g => new 
+            { 
+                Mes = g.Key, 
+                Total = g.Sum(l => (double)l.Cantidad * (double)l.PrecioUnitario) 
+            })
             .ToListAsync();
 
         // 2. Obtener gastos mensuales manuales
@@ -55,8 +64,8 @@ public class FinanzasController : ControllerBase
             {
                 mes = meses[i - 1],
                 ingresos = Math.Round(ingresos, 2),
-                gastos = Math.Round(gastosTotales, 2),
-                balance = Math.Round(ingresos - gastosTotales, 2)
+                gastos = Math.Round((double)gastosTotales, 2),
+                balance = Math.Round(ingresos - (double)gastosTotales, 2)
             });
         }
 

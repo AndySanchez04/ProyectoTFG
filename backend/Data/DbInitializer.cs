@@ -38,6 +38,7 @@ namespace backend.Data
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
+            // Validar y crear tabla Resenas si no existe
             context.Database.ExecuteSqlRaw(@"
                 CREATE TABLE IF NOT EXISTS Resenas (
                     Id INT AUTO_INCREMENT PRIMARY KEY,
@@ -50,6 +51,10 @@ namespace backend.Data
                     Fecha DATETIME NOT NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
+
+            // Asegurar que las columnas existen (por si se creó una versión antigua)
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Resenas ADD COLUMN IF NOT EXISTS UsuarioEmail VARCHAR(255);"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Resenas ADD COLUMN IF NOT EXISTS RespuestaJefe TEXT;"); } catch { }
 
             // TAREA 3: Limpieza inicial
             var todasLasMesas = context.MesasRestaurantes.ToList();
@@ -110,11 +115,11 @@ namespace backend.Data
             };
 
             // TAREA: Renombrar categorías erróneas en productos antes de limpiar
-            var productosConEntrante = context.ProductosMenus.Where(p => p.Categoria == "Entrante" || p.Categoria == "Entrantes").ToList();
+            var productosConEntrante = context.ProductoMenus.Where(p => p.Categoria == "Entrante" || p.Categoria == "Entrantes").ToList();
             foreach (var p in productosConEntrante)
             {
                 p.Categoria = "Postres";
-                context.ProductosMenus.Update(p);
+                context.ProductoMenus.Update(p);
             }
             context.SaveChanges();
 
@@ -340,6 +345,65 @@ namespace backend.Data
             }
 
             // Guardamos las nuevas inserciones y actualizaciones
+            // Sembrar Reseñas si está vacío
+            if (!context.Resenas.Any())
+            {
+                context.Resenas.AddRange(new List<Resena>
+                {
+                    new Resena {
+                        UsuarioNombre = "Cliente Satisfecho",
+                        Estrellas = 5,
+                        Comentario = "¡La mejor comida mexicana que he probado! El ambiente es increíble.",
+                        Fecha = DateTime.Now.AddDays(-2)
+                    },
+                    new Resena {
+                        UsuarioNombre = "Ana García",
+                        Estrellas = 4,
+                        Comentario = "Muy rico todo, aunque el servicio fue un poco lento por la cantidad de gente.",
+                        Fecha = DateTime.Now.AddDays(-1)
+                    }
+                });
+                context.SaveChanges();
+            }
+
+            // Sembrar Reservas de Prueba para HOY si no hay ninguna para hoy
+            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            var hayReservasHoy = context.Reservas.Any(r => r.FechaReserva == hoy);
+            if (!hayReservasHoy)
+            {
+                // Buscar usuario jefe o cualquier usuario real
+                var usuarioJefe = context.Usuarios.FirstOrDefault(u => u.Email == "jefe@restaurante.com");
+                var primerasMesas = context.MesasRestaurantes.Take(3).ToList();
+
+                if (usuarioJefe != null && primerasMesas.Count >= 2)
+                {
+                    context.Reservas.AddRange(new List<Reserva>
+                    {
+                        new Reserva {
+                            UsuarioId = usuarioJefe.Id,
+                            MesaId = primerasMesas[0].Id,
+                            FechaReserva = hoy,
+                            HoraInicio = new TimeOnly(13, 30),
+                            HoraFin = new TimeOnly(15, 30),
+                            NumPersonas = 2,
+                            Estado = "Confirmada",
+                            CreatedAt = DateTime.UtcNow
+                        },
+                        new Reserva {
+                            UsuarioId = usuarioJefe.Id,
+                            MesaId = primerasMesas[1].Id,
+                            FechaReserva = hoy,
+                            HoraInicio = new TimeOnly(21, 0),
+                            HoraFin = new TimeOnly(23, 0),
+                            NumPersonas = 4,
+                            Estado = "Confirmada",
+                            CreatedAt = DateTime.UtcNow
+                        }
+                    });
+                    context.SaveChanges();
+                }
+            }
+
             context.SaveChanges();
         }
     }

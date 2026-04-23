@@ -16,6 +16,21 @@ public class ComandasController : ControllerBase
     private readonly U374392370ReservasContext _context;
     private readonly IHubContext<RestauranteHub> _hubContext;
 
+    private static readonly string[] CategoriasBebidaKeywords = new[] { 
+        "bebida", "bebidas", "cerveza", "cervezas", "vino", "vinos", "refresco", "refrescos", 
+        "zumo", "zumos", "batido", "batidos", "copa", "copas", "coctel", "cóctel", "cocteles", "cócteles", 
+        "tequila", "mezcal", "agua", "aguas", "café", "cafe", "cafes", "cafés", "infusión", "infusion", 
+        "infusiones", "licor", "licores", "ginebra", "ron", "whisky", "vodka", "tónica", "margarita", 
+        "mojito", "aperitivo", "aperitivos", "combinado", "combinados", "otros"
+    };
+
+    private bool EsBebida(string? categoria)
+    {
+        if (string.IsNullOrWhiteSpace(categoria)) return false;
+        var cat = categoria.Trim().ToLower();
+        return CategoriasBebidaKeywords.Any(k => cat.Contains(k));
+    }
+
     public ComandasController(U374392370ReservasContext context, IHubContext<RestauranteHub> hubContext)
     {
         _context = context;
@@ -26,24 +41,24 @@ public class ComandasController : ControllerBase
     [HttpGet("bebidas-pendientes")]
     public async Task<ActionResult<IEnumerable<object>>> GetBebidasPendientes()
     {
-        // Categorías que consideramos bebidas
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
-
-        var bebidasPendientes = await _context.LineasComanda
+        var todasLasLineas = await _context.LineasComanda
             .Include(l => l.Comanda)
                 .ThenInclude(c => c.Usuario)
             .Include(l => l.ProductoMenu)
-            .Where(l => l.Servida == false && 
-                   categoriasBebida.Contains(l.ProductoMenu.Categoria)) // Asumiendo que existe ProductoMenu.Categoria
+            .Where(l => l.Servida == false)
+            .ToListAsync();
+
+        var bebidasPendientes = todasLasLineas
+            .Where(l => EsBebida(l.ProductoMenu.Categoria))
             .Select(l => new 
             {
-                IdPedido = l.Id,
-                Mesa = l.Comanda.Mesa.NumeroMesa, // ✅ Fix: Solo el string del número de la mesa, no el objeto entero
-                Cantidad = l.Cantidad,
-                NombreBebida = l.ProductoMenu.Nombre,
-                Camarero = l.Comanda.Usuario.Nombre
+                idPedido = l.Id,
+                mesa = l.Comanda.Mesa.NumeroMesa,
+                cantidad = l.Cantidad,
+                nombreBebida = l.ProductoMenu.Nombre,
+                camarero = l.Comanda.Usuario.Nombre
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(bebidasPendientes);
     }
@@ -52,41 +67,32 @@ public class ComandasController : ControllerBase
     [HttpGet("cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetComandasCocina()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
-
-        // 1. Obtener los IDs de las comandas que tienen al menos un plato (no bebida) por servir
-        var comandaIdsActivas = await _context.LineasComanda
-            .Include(l => l.ProductoMenu)
-            .Where(l => !l.Servida && !categoriasBebida.Contains(l.ProductoMenu.Categoria))
-            .Select(l => l.ComandaId)
-            .Distinct()
-            .ToListAsync();
-
-        // 2. Obtener todas las líneas (que no sean bebidas) de esas comandas activas
-        var lineasDeInteres = await _context.LineasComanda
+        var todasLasLineas = await _context.LineasComanda
             .Include(l => l.Comanda)
                 .ThenInclude(c => c.Mesa)
             .Include(l => l.ProductoMenu)
-            .Where(l => comandaIdsActivas.Contains(l.ComandaId) && 
-                   !categoriasBebida.Contains(l.ProductoMenu.Categoria))
+            .Where(l => !l.Servida)
             .ToListAsync();
 
-        var ticketsPorMesa = lineasDeInteres
+        var lineasComida = todasLasLineas.Where(l => !EsBebida(l.ProductoMenu.Categoria)).ToList();
+        var comandaIdsActivas = lineasComida.Select(l => l.ComandaId).Distinct().ToList();
+
+        var ticketsPorMesa = lineasComida
             .GroupBy(l => new { l.Comanda.Mesa.NumeroMesa, l.Comanda.FechaHora })
             .Select(g => new
             {
-                Mesa = g.Key.NumeroMesa,
-                FechaHora = g.Key.FechaHora, 
-                Platos = g.Select(l => new 
+                mesa = g.Key.NumeroMesa,
+                fechaHora = g.Key.FechaHora, 
+                platos = g.Select(l => new 
                 {
-                    IdLinea = l.Id,
-                    Cantidad = l.Cantidad,
-                    NombrePlato = l.ProductoMenu.Nombre,
-                    Notas = l.Notas,
-                    Servida = l.Servida
+                    idLinea = l.Id,
+                    cantidad = l.Cantidad,
+                    nombrePlato = l.ProductoMenu.Nombre,
+                    notas = l.Notas,
+                    servida = l.Servida
                 }).ToList()
             })
-            .OrderBy(t => t.FechaHora)
+            .OrderBy(t => t.fechaHora)
             .ToList();
 
         return Ok(ticketsPorMesa);
@@ -96,42 +102,34 @@ public class ComandasController : ControllerBase
     [HttpGet("barra")]
     public async Task<ActionResult<IEnumerable<object>>> GetComandasBarra()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
-
-        var comandaIdsActivas = await _context.LineasComanda
-            .Include(l => l.ProductoMenu)
-            .Where(l => !l.Servida && categoriasBebida.Contains(l.ProductoMenu.Categoria))
-            .Select(l => l.ComandaId)
-            .Distinct()
-            .ToListAsync();
-
-        var lineasDeInteres = await _context.LineasComanda
+        var todasLasLineas = await _context.LineasComanda
             .Include(l => l.Comanda)
                 .ThenInclude(c => c.Mesa)
             .Include(l => l.Comanda)
                 .ThenInclude(c => c.Usuario)
             .Include(l => l.ProductoMenu)
-            .Where(l => comandaIdsActivas.Contains(l.ComandaId) && 
-                   categoriasBebida.Contains(l.ProductoMenu.Categoria))
+            .Where(l => !l.Servida)
             .ToListAsync();
 
-        var ticketsPorMesa = lineasDeInteres
+        var lineasBebida = todasLasLineas.Where(l => EsBebida(l.ProductoMenu.Categoria)).ToList();
+
+        var ticketsPorMesa = lineasBebida
             .GroupBy(l => new { l.Comanda.Mesa.NumeroMesa, l.Comanda.FechaHora, l.Comanda.Usuario.Nombre })
             .Select(g => new
             {
-                Mesa = g.Key.NumeroMesa,
-                FechaHora = g.Key.FechaHora,
-                Camarero = g.Key.Nombre,
-                Bebidas = g.Select(l => new 
+                mesa = g.Key.NumeroMesa,
+                fechaHora = g.Key.FechaHora,
+                camarero = g.Key.Nombre,
+                bebidas = g.Select(l => new 
                 {
-                    IdLinea = l.Id,
-                    Cantidad = l.Cantidad,
-                    NombreBebida = l.ProductoMenu.Nombre,
-                    Notas = l.Notas,
-                    Servida = l.Servida
+                    idLinea = l.Id,
+                    cantidad = l.Cantidad,
+                    nombreBebida = l.ProductoMenu.Nombre,
+                    notas = l.Notas,
+                    servida = l.Servida
                 }).ToList()
             })
-            .OrderBy(t => t.FechaHora)
+            .OrderBy(t => t.fechaHora)
             .ToList();
 
         return Ok(ticketsPorMesa);
@@ -141,43 +139,43 @@ public class ComandasController : ControllerBase
     [HttpGet("historial-cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialCocina()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
-        
         var ahora = DateTime.Now;
         var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);
         var ultimoDiaMes = primerDiaMes.AddMonths(1).AddTicks(-1);
 
-        var historial = await _context.Comandas
+        var comandas = await _context.Comandas
             .Include(c => c.Mesa)
             .Include(c => c.Usuario)
             .Include(c => c.Lineas)
                 .ThenInclude(l => l.ProductoMenu)
             .Where(c => c.FechaHora >= primerDiaMes && c.FechaHora <= ultimoDiaMes)
-            // Comandas que tienen platos (no bebidas) y todos ellos están servidos
-            .Where(c => c.Lineas.Any(l => !categoriasBebida.Contains(l.ProductoMenu.Categoria)) &&
-                        c.Lineas.Where(l => !categoriasBebida.Contains(l.ProductoMenu.Categoria)).All(l => l.Servida))
+            .ToListAsync();
+
+        var historial = comandas
+            .Where(c => c.Lineas.Any(l => !EsBebida(l.ProductoMenu.Categoria)) &&
+                        c.Lineas.Where(l => !EsBebida(l.ProductoMenu.Categoria)).All(l => l.Servida))
             .OrderByDescending(c => c.FechaHora)
             .Select(c => new
             {
-                IdComanda = c.Id,
-                Mesa = c.Mesa.NumeroMesa,
-                FechaHora = c.FechaHora,
-                Camarero = c.Usuario.Nombre,
-                Platos = c.Lineas
-                    .Where(l => !categoriasBebida.Contains(l.ProductoMenu.Categoria))
+                idComanda = c.Id,
+                mesa = c.Mesa.NumeroMesa,
+                fechaHora = c.FechaHora,
+                camarero = c.Usuario.Nombre,
+                platos = c.Lineas
+                    .Where(l => !EsBebida(l.ProductoMenu.Categoria))
                     .Select(l => new
                     {
-                        Nombre = l.ProductoMenu.Nombre,
-                        Cantidad = l.Cantidad,
-                        PrecioUnitario = l.PrecioUnitario,
-                        Subtotal = l.Cantidad * l.PrecioUnitario,
-                        Notas = l.Notas
+                        nombre = l.ProductoMenu.Nombre,
+                        cantidad = l.Cantidad,
+                        precioUnitario = l.PrecioUnitario,
+                        subtotal = l.Cantidad * l.PrecioUnitario,
+                        notas = l.Notas
                     }).ToList(),
-                TotalComanda = c.Lineas
-                    .Where(l => !categoriasBebida.Contains(l.ProductoMenu.Categoria))
+                totalComanda = c.Lineas
+                    .Where(l => !EsBebida(l.ProductoMenu.Categoria))
                     .Sum(l => (double)l.Cantidad * (double)l.PrecioUnitario)
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(historial);
     }
@@ -186,43 +184,43 @@ public class ComandasController : ControllerBase
     [HttpGet("historial-barra")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialBarra()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
-        
         var ahora = DateTime.Now;
         var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);
         var ultimoDiaMes = primerDiaMes.AddMonths(1).AddTicks(-1);
 
-        var historial = await _context.Comandas
+        var comandas = await _context.Comandas
             .Include(c => c.Mesa)
             .Include(c => c.Usuario)
             .Include(c => c.Lineas)
                 .ThenInclude(l => l.ProductoMenu)
             .Where(c => c.FechaHora >= primerDiaMes && c.FechaHora <= ultimoDiaMes)
-            // Comandas que tienen bebidas y todas ellas están servidas
-            .Where(c => c.Lineas.Any(l => categoriasBebida.Contains(l.ProductoMenu.Categoria)) &&
-                        c.Lineas.Where(l => categoriasBebida.Contains(l.ProductoMenu.Categoria)).All(l => l.Servida))
+            .ToListAsync();
+
+        var historial = comandas
+            .Where(c => c.Lineas.Any(l => EsBebida(l.ProductoMenu.Categoria)) &&
+                        c.Lineas.Where(l => EsBebida(l.ProductoMenu.Categoria)).All(l => l.Servida))
             .OrderByDescending(c => c.FechaHora)
             .Select(c => new
             {
-                IdComanda = c.Id,
-                Mesa = c.Mesa.NumeroMesa,
-                FechaHora = c.FechaHora,
-                Camarero = c.Usuario.Nombre,
-                Bebidas = c.Lineas
-                    .Where(l => categoriasBebida.Contains(l.ProductoMenu.Categoria))
+                idComanda = c.Id,
+                mesa = c.Mesa.NumeroMesa,
+                fechaHora = c.FechaHora,
+                camarero = c.Usuario.Nombre,
+                bebidas = c.Lineas
+                    .Where(l => EsBebida(l.ProductoMenu.Categoria))
                     .Select(l => new
                     {
-                        Nombre = l.ProductoMenu.Nombre,
-                        Cantidad = l.Cantidad,
-                        PrecioUnitario = l.PrecioUnitario,
-                        Subtotal = l.Cantidad * l.PrecioUnitario,
-                        Notas = l.Notas
+                        nombre = l.ProductoMenu.Nombre,
+                        cantidad = l.Cantidad,
+                        precioUnitario = l.PrecioUnitario,
+                        subtotal = l.Cantidad * l.PrecioUnitario,
+                        notas = l.Notas
                     }).ToList(),
-                TotalBebidas = c.Lineas
-                    .Where(l => categoriasBebida.Contains(l.ProductoMenu.Categoria))
+                totalBebidas = c.Lineas
+                    .Where(l => EsBebida(l.ProductoMenu.Categoria))
                     .Sum(l => (double)l.Cantidad * (double)l.PrecioUnitario)
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(historial);
     }

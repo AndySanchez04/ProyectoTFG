@@ -9,6 +9,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json.Serialization;
 
 namespace backend.Controllers
 {
@@ -34,9 +35,18 @@ namespace backend.Controllers
 
         // POST: api/Resenas
         [HttpPost]
-        public async Task<ActionResult<Resena>> PostResena(Resena resena)
+        public async Task<ActionResult<Resena>> PostResena(ResenaDto dto)
         {
-            resena.Fecha = DateTime.Now;
+            var resena = new Resena
+            {
+                UsuarioNombre = dto.UsuarioNombre,
+                UsuarioEmail = dto.UsuarioEmail,
+                UsuarioFoto = dto.UsuarioFoto,
+                Estrellas = dto.Estrellas,
+                Comentario = dto.Comentario,
+                Fecha = DateTime.Now
+            };
+
             _context.Resenas.Add(resena);
             await _context.SaveChangesAsync();
 
@@ -46,8 +56,9 @@ namespace backend.Controllers
         // POST: api/Resenas/responder/{id}
         [Authorize(Roles = "jefe")]
         [HttpPost("responder/{id}")]
-        public async Task<IActionResult> Responder(int id, [FromBody] string respuesta)
+        public async Task<IActionResult> Responder(int id, [FromBody] RespuestaDto dto)
         {
+            var respuesta = dto.Respuesta;
             var resena = await _context.Resenas.FindAsync(id);
             if (resena == null) return NotFound();
 
@@ -105,6 +116,30 @@ namespace backend.Controllers
             }
 
             return Ok(new { message = "Respuesta guardada y correo enviado." });
+        }
+
+        public class RespuestaDto
+        {
+            [JsonPropertyName("respuesta")]
+            public string Respuesta { get; set; } = string.Empty;
+        }
+
+        public class ResenaDto
+        {
+            [JsonPropertyName("usuarioNombre")]
+            public string UsuarioNombre { get; set; } = string.Empty;
+            
+            [JsonPropertyName("usuarioEmail")]
+            public string? UsuarioEmail { get; set; }
+            
+            [JsonPropertyName("usuarioFoto")]
+            public string? UsuarioFoto { get; set; }
+            
+            [JsonPropertyName("estrellas")]
+            public int Estrellas { get; set; }
+            
+            [JsonPropertyName("comentario")]
+            public string Comentario { get; set; } = string.Empty;
         }
     }
 }

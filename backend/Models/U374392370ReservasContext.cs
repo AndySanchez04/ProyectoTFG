@@ -167,6 +167,17 @@ public partial class U374392370ReservasContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_Gasto_Usuario");
         });
+
+        modelBuilder.Entity<Resena>(entity =>
+        {
+            entity.ToTable("Resenas");
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+            entity.Property(e => e.Id).HasColumnType("int(11)");
+            entity.Property(e => e.UsuarioNombre).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Estrellas).HasColumnType("int(11)").IsRequired();
+            entity.Property(e => e.Comentario).HasColumnType("text").IsRequired();
+            entity.Property(e => e.Fecha).HasColumnType("datetime").IsRequired();
+        });
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

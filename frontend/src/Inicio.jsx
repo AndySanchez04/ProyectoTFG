@@ -9,6 +9,7 @@ export default function Inicio() {
     const [nuevaResena, setNuevaResena] = useState({ estrellas: 5, comentario: '' });
     const [enviando, setEnviando] = useState(false);
     const [usuario, setUsuario] = useState(null);
+    const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'success' });
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
@@ -41,10 +42,15 @@ export default function Inicio() {
                 comentario: nuevaResena.comentario
             };
             await axios.post(`${API_URL}/api/resenas`, resenaToSend);
+            setModal({ open: true, title: '¡Gracias!', message: 'Tu reseña ha sido publicada con éxito.', type: 'success' });
             setNuevaResena({ estrellas: 5, comentario: '' });
             fetchResenas();
         } catch (e) {
             console.error("Error enviando reseña", e);
+            const errorMsg = e.response?.data?.errors 
+                ? JSON.stringify(e.response.data.errors) 
+                : (e.response?.data?.title || e.message);
+            setModal({ open: true, title: 'Lo sentimos', message: 'Hubo un error al enviar tu reseña: ' + errorMsg, type: 'error' });
         } finally {
             setEnviando(false);
         }
@@ -290,7 +296,7 @@ export default function Inicio() {
                                                             {r.usuarioFoto ? (
                                                                 <img src={r.usuarioFoto} alt="User" className="w-full h-full object-cover" />
                                                             ) : (
-                                                                <span className="text-mostaza font-bold text-xl">{r.usuarioNombre.charAt(0)}</span>
+                                                                <span className="text-mostaza font-bold text-xl">{(r.usuarioNombre || "C").charAt(0)}</span>
                                                             )}
                                                         </div>
                                                         <div>
@@ -336,6 +342,34 @@ export default function Inicio() {
                 </div>
 
             </main>
+
+            {/* Modal de Feedback (Éxito/Error) */}
+            {modal.open && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setModal({ ...modal, open: false })}></div>
+                    <div className="relative bg-fondo-tarjeta border border-fondo-borde p-8 rounded-[2.5rem] max-w-sm w-full text-center shadow-2xl animate-in zoom-in duration-300">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border-2 ${modal.type === 'success' ? 'bg-mostaza/20 border-mostaza text-mostaza' : 'bg-red-500/20 border-red-500 text-red-500'}`}>
+                            {modal.type === 'success' ? (
+                                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                </svg>
+                            ) : (
+                                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            )}
+                        </div>
+                        <h3 className="text-3xl font-black text-white mb-2">{modal.title}</h3>
+                        <p className="text-gray-400 mb-8 font-medium leading-relaxed">{modal.message}</p>
+                        <button 
+                            onClick={() => setModal({ ...modal, open: false })}
+                            className={`w-full py-5 rounded-2xl text-lg font-black transition-all active:scale-95 shadow-xl ${modal.type === 'success' ? 'bg-mostaza text-black hover:bg-mostaza-hover shadow-mostaza/20' : 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/20'}`}
+                        >
+                            ENTENDIDO
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

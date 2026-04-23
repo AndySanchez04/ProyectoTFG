@@ -1881,43 +1881,92 @@ function HorariosModule() {
   const exportPDF = () => {
     const doc = new jsPDF('landscape');
     const range = getRangeSemanales();
-    doc.text(`Horarios de la Semana (${range})`, 14, 20);
     
-    const bodyData = [];
-    empleados.forEach(emp => {
-      const row1 = [emp.nombre + ' ' + emp.apellidos];
-      const row2 = [''];
-      diasSemana.forEach(dia => {
-        row1.push(horarios[`${emp.id}-${dia}-1`] || '');
-        row2.push(horarios[`${emp.id}-${dia}-2`] || '');
-      });
-      bodyData.push(row1);
-      bodyData.push(row2);
-    });
+    // Header con Logo y Nombre
+    const img = new Image();
+    img.src = '/images/logo.jpg';
+    
+    img.onload = () => {
+      // Fondo Negro para el Header (Estilo Reservas)
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, doc.internal.pageSize.width, 40, 'F');
 
-    autoTable(doc, {
-      startY: 30,
-      head: [['', ...diasSemana]],
-      body: bodyData,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 2, fontStyle: 'bold', halign: 'center', lineColor: [255, 255, 255], lineWidth: 0.1 },
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
-      didParseCell: function(data) {
-        if (data.section === 'body') {
-          const empIndex = Math.floor(data.row.index / 2);
-          if (empIndex % 2 === 0) {
-            data.cell.styles.fillColor = [234, 179, 8];
-            data.cell.styles.textColor = [0, 0, 0];
-          } else {
-            data.cell.styles.fillColor = [0, 0, 0];
-            data.cell.styles.textColor = [255, 255, 255];
+      // Dibujar Logo
+      doc.addImage(img, 'JPEG', 14, 8, 24, 24);
+      
+      // Nombre del Restaurante
+      doc.setFontSize(26);
+      doc.setTextColor(234, 179, 8); // Mostaza
+      doc.setFont("helvetica", "bold");
+      doc.text('MILD & LIMON', 45, 20);
+      
+      // Subtítulo con rango de fechas
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255); // Blanco
+      doc.setFont("helvetica", "normal");
+      doc.text(`PLANIFICACIÓN SEMANAL DE TURNOS`, 45, 27);
+      doc.text(`Periodo: ${range}`, 45, 33);
+      
+      const bodyData = [];
+      empleados.forEach(emp => {
+        const row1 = [emp.nombre + ' ' + emp.apellidos];
+        const row2 = [''];
+        diasSemana.forEach(dia => {
+          row1.push(horarios[`${emp.id}-${dia}-1`] || '');
+          row2.push(horarios[`${emp.id}-${dia}-2`] || '');
+        });
+        bodyData.push(row1);
+        bodyData.push(row2);
+      });
+
+      autoTable(doc, {
+        startY: 45,
+        head: [['Empleado', ...diasSemana]],
+        body: bodyData,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2, fontStyle: 'bold', halign: 'center', lineColor: [255, 255, 255], lineWidth: 0.1 },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+        didParseCell: function(data) {
+          if (data.section === 'body') {
+            const empIndex = Math.floor(data.row.index / 2);
+            if (empIndex % 2 === 0) {
+              data.cell.styles.fillColor = [234, 179, 8];
+              data.cell.styles.textColor = [0, 0, 0];
+            } else {
+              data.cell.styles.fillColor = [0, 0, 0];
+              data.cell.styles.textColor = [255, 255, 255];
+            }
           }
         }
-      }
-    });
+      });
 
-    doc.save("Horarios.pdf");
-    showToast('Exportado a PDF correctamente', 'success');
+      doc.save(`Horarios_MildLimon_${range.replace(/\//g, '-')}.pdf`);
+      showToast('Exportado a PDF correctamente', 'success');
+    };
+
+    img.onerror = () => {
+        // Fallback si no carga la imagen
+        doc.setFontSize(22);
+        doc.setTextColor(234, 179, 8);
+        doc.text('MILD & LIMON', 14, 20);
+        doc.setFontSize(10);
+        doc.text(`Horarios de la Semana (${range})`, 14, 28);
+        // ... mismo proceso sin imagen ...
+        // (Por brevedad, ejecuto el código de tabla directamente)
+        const bodyData = [];
+        empleados.forEach(emp => {
+          const row1 = [emp.nombre + ' ' + emp.apellidos];
+          const row2 = [''];
+          diasSemana.forEach(dia => {
+            row1.push(horarios[`${emp.id}-${dia}-1`] || '');
+            row2.push(horarios[`${emp.id}-${dia}-2`] || '');
+          });
+          bodyData.push(row1);
+          bodyData.push(row2);
+        });
+        autoTable(doc, { startY: 35, head: [['Empleado', ...diasSemana]], body: bodyData });
+        doc.save("Horarios.pdf");
+    };
   };
 
   const exportExcel = async () => {
@@ -2279,9 +2328,14 @@ function ResenasModule() {
     if (!modal.respuesta.trim()) return;
     setEnviando(true);
     try {
+      const token = localStorage.getItem('token');
       await axios.post(`${API_URL}/api/resenas/responder/${modal.resena.id}`, 
-        JSON.stringify(modal.respuesta),
-        { headers: { 'Content-Type': 'application/json' } }
+        { respuesta: modal.respuesta },
+        { headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          } 
+        }
       );
       showToast('Respuesta enviada y guardada', 'success');
       setModal({ show: false, resena: null, respuesta: '' });
@@ -2322,7 +2376,7 @@ function ResenasModule() {
                     {r.usuarioFoto ? (
                       <img src={r.usuarioFoto} alt="User" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-mostaza font-black text-2xl">{r.usuarioNombre.charAt(0)}</span>
+                      <span className="text-mostaza font-black text-2xl">{(r.usuarioNombre || "C").charAt(0)}</span>
                     )}
                   </div>
                   <div className="flex text-mostaza text-xs">

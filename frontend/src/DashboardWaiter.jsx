@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 export default function DashboardWaiter() {
   const navigate = useNavigate();
@@ -16,6 +17,10 @@ export default function DashboardWaiter() {
   
   // Estado de Reservas para Camareros
   const [reservasHoy, setReservasHoy] = useState([]);
+  const [errorReservas, setErrorReservas] = useState(null);
+  const [fechaFiltro, setFechaFiltro] = useState(new Date().toISOString().split('T')[0]);
+  const fechaFiltroRef = useRef(fechaFiltro);
+  const fetchReservasHoyRef = useRef(null);
 
   // Estado de bebidas y modales
   const [bebidasPendientes, setBebidasPendientes] = useState([]);
@@ -34,6 +39,37 @@ export default function DashboardWaiter() {
     localStorage.removeItem('rol');
     navigate('/');
   };
+
+  // SignalR: actualizar en tiempo real cuando lleguen nuevos datos
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+  useEffect(() => {
+    const connection = new HubConnectionBuilder()
+      .withUrl('http://localhost:5105/restauranteHub', { withCredentials: true })
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
+      .configureLogging(LogLevel.Warning)
+      .build();
+
+    connection.on('ActualizarDatos', () => {
+      const tab = activeTabRef.current;
+      if (tab === 'reservas') fetchReservasHoyRef.current();
+      if (tab === 'bebidas_pendientes') fetchBebidasPendientes();
+    });
+
+    const startConnection = async () => {
+      try {
+        await connection.start();
+        console.log('SignalR conectado en DashboardWaiter.');
+      } catch (err) {
+        console.error('SignalR error:', err);
+        setTimeout(startConnection, 5000);
+      }
+    };
+    startConnection();
+
+    return () => { connection.stop(); };
+  }, []);
 
   // 1. Estructura de Datos (Carga desde backend Petición GET)
   useEffect(() => {
@@ -115,24 +151,36 @@ export default function DashboardWaiter() {
     setMostrarHistorial(!mostrarHistorial);
   };
 
-  // Cargar reservas de hoy
+  // Mantener ref sincronizada con estado
+  useEffect(() => { fechaFiltroRef.current = fechaFiltro; }, [fechaFiltro]);
+
+  // Cargar reservas de la fecha seleccionada
   const fetchReservasHoy = async () => {
+    const fecha = fechaFiltroRef.current;
+    setErrorReservas(null);
     try {
-      const response = await axios.get('http://localhost:5105/api/reservas/hoy');
+      const response = await axios.get(`http://localhost:5105/api/reservas/hoy?fecha=${fecha}`);
+      console.log('Reservas recibidas:', response.data);
       setReservasHoy(response.data);
     } catch (error) {
-      console.error("Error al obtener reservas del día:", error);
+      console.error("Error al obtener reservas:", error);
+      const status = error.response?.status;
+      const msg = status === 401 ? 'No autorizado (401). Asegúrate de haber iniciado sesión como camarero o jefe.'
+                : status === 403 ? 'Acceso denegado (403). Tu rol no tiene permisos para ver reservas.'
+                : `Error ${status || 'de red'}: ${error.message}`;
+      setErrorReservas(msg);
     }
   };
+  fetchReservasHoyRef.current = fetchReservasHoy;
 
-  // Cargar datos cuando se cambia de pestaña
+  // Cargar datos cuando se cambia de pestaña o fecha
   useEffect(() => {
     if (activeTab === 'bebidas_pendientes') {
       fetchBebidasPendientes();
     } else if (activeTab === 'reservas') {
       fetchReservasHoy();
     }
-  }, [activeTab]);
+  }, [activeTab, fechaFiltro]);
 
   const handleEstadoReserva = async (id, nuevoEstado) => {
     try {
@@ -162,13 +210,24 @@ export default function DashboardWaiter() {
     try {
       await axios.put(`http://localhost:5105/api/comandas/linea/${bebidaAServir.idPedido}/servir`);
       
-      // Eliminar de la lista local (o volver a llamar a la API)
-      setBebidasPendientes(prev => prev.filter(b => b.idPedido !== bebidaAServir.idPedido));
+      // Actualización optimista igual que en cocina
+      setBebidasPendientes(prevTickets => {
+        const nuevosTickets = prevTickets.map(ticket => {
+          return {
+            ...ticket,
+            bebidas: ticket.bebidas.map(b => 
+              b.idLinea === bebidaAServir.idPedido ? { ...b, servida: true } : b
+            )
+          };
+        });
+        
+        // Filtramos para quitar solo los tickets donde TODAS las bebidas estén ya servidas
+        return nuevosTickets.filter(ticket => !ticket.bebidas.every(b => b.servida));
+      });
       
       // Cerrar modal y limpiar
       setModalServirAbierto(false);
       setBebidaAServir(null);
-      setModalMensaje({ show: true, titulo: '¡Bebida Servida!', mensaje: 'La bebida se ha marcado como servida.', isError: false });
     } catch (error) {
       console.error("Error al marcar bebida como servida:", error);
       setModalMensaje({ show: true, titulo: 'Error', mensaje: 'Hubo un error al confirmar la entrega.', isError: true });
@@ -522,23 +581,29 @@ export default function DashboardWaiter() {
                     <div className="p-4 flex-1 bg-fondo/30">
                       <ul className="space-y-3">
                         {ticket.bebidas.map((b) => (
-                          <li key={b.idLinea} className="flex items-center justify-between border-b border-fondo-borde pb-2 last:border-0">
+                          <li key={b.idLinea} className={`flex items-center justify-between border-b border-fondo-borde pb-2 last:border-0 ${b.servida ? 'opacity-40' : ''}`}>
                             <div className="flex-1">
                               <p className="text-white font-bold text-lg leading-tight">
-                                <span className="bg-mostaza/20 text-mostaza px-1.5 rounded mr-2 font-black">{b.cantidad}x</span>
+                                <span className={`bg-mostaza/20 text-mostaza px-1.5 rounded mr-2 font-black ${b.servida ? 'bg-gray-500/20 text-gray-500' : ''}`}>{b.cantidad}x</span>
                                 {b.nombreBebida}
                               </p>
                               {b.notas && <p className="text-mostaza text-xs font-bold mt-1 uppercase italic">📝 {b.notas}</p>}
                             </div>
-                            <button 
-                              onClick={() => {
-                                setBebidaAServir({ idPedido: b.idLinea, nombreBebida: b.nombreBebida });
-                                setConfirmarServir(true);
-                              }}
-                              className="ml-3 w-10 h-10 bg-mostaza/10 hover:bg-mostaza text-mostaza hover:text-black rounded-lg transition-all border border-mostaza/30 flex items-center justify-center shrink-0"
-                            >
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                            </button>
+                            {!b.servida ? (
+                              <button 
+                                  onClick={() => {
+                                    setBebidaAServir({ idPedido: b.idLinea, nombreBebida: b.nombreBebida, cantidad: b.cantidad, mesa: ticket.mesa });
+                                    setModalServirAbierto(true);
+                                  }}
+                                className="ml-3 w-10 h-10 bg-mostaza/10 hover:bg-mostaza text-mostaza hover:text-black rounded-lg transition-all border border-mostaza/30 flex items-center justify-center shrink-0"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                              </button>
+                            ) : (
+                              <div className="ml-3 w-10 h-10 bg-mostaza/20 text-mostaza rounded-lg border border-mostaza/30 flex items-center justify-center shrink-0">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -572,10 +637,37 @@ export default function DashboardWaiter() {
       {/* Main Content - Vista Reservas para Control de Sala */}
       {activeTab === 'reservas' && (
         <main className="flex-1 overflow-y-auto w-full mx-auto p-5 space-y-4">
-          {reservasHoy.length === 0 ? (
+          {/* Barra de acciones y filtros */}
+          <div className="flex flex-col sm:flex-row justify-between items-center bg-fondo-tarjeta p-4 rounded-2xl border border-fondo-borde mb-6 shadow-sm gap-4">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <label className="text-gray-400 font-bold text-sm uppercase tracking-wider">Fecha:</label>
+              <input 
+                type="date" 
+                value={fechaFiltro}
+                onChange={(e) => setFechaFiltro(e.target.value)}
+                className="bg-fondo border border-fondo-borde text-white px-4 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-mostaza transition-all font-medium flex-1 sm:flex-none"
+              />
+            </div>
+            <button
+              onClick={fetchReservasHoy}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-fondo border border-fondo-borde text-gray-300 hover:text-mostaza hover:border-mostaza px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              Actualizar
+            </button>
+          </div>
+          {errorReservas ? (
+            <div className="flex flex-col items-center justify-center mt-20">
+              <span className="text-5xl mb-4">⚠️</span>
+              <p className="text-xl text-red-400 font-bold mb-2">Error al cargar reservas</p>
+              <p className="text-gray-500 text-sm text-center max-w-md px-4">{errorReservas}</p>
+              <button onClick={fetchReservasHoy} className="mt-4 bg-mostaza text-black px-6 py-2 rounded-xl font-bold">Reintentar</button>
+            </div>
+          ) : reservasHoy.length === 0 ? (
             <div className="flex flex-col items-center justify-center mt-20 opacity-50">
               <span className="text-6xl mb-4">📅</span>
-              <p className="text-xl text-gray-400 font-bold">Sin reservas para hoy</p>
+              <p className="text-xl text-gray-400 font-bold">Sin reservas</p>
+              <p className="text-gray-600 text-sm mt-2">No hay reservas programadas para el {fechaFiltro.split('-').reverse().join('/')}</p>
             </div>
           ) : (
             reservasHoy.map(res => (
@@ -620,6 +712,7 @@ export default function DashboardWaiter() {
           )}
         </main>
       )}
+
 
       {/* 3. Sticky Bottom Bar Solo en Tomar Comanda */}
       {activeTab === 'tomar_comanda' && (

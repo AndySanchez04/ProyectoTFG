@@ -302,6 +302,18 @@ export default function Reservas() {
             <Header />
 
             <main className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 pt-6">
+                {/* Botón Volver a Inicio */}
+                <button 
+                    onClick={() => navigate('/inicio')}
+                    className="mb-6 flex items-center gap-2 text-gray-400 hover:text-mostaza transition-all group"
+                >
+                    <div className="bg-white/5 p-2 rounded-lg group-hover:bg-mostaza/20 border border-white/5 group-hover:border-mostaza/30 transition-all">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </div>
+                    <span className="font-bold text-sm uppercase tracking-widest">Volver a Inicio</span>
+                </button>
                 {/* Barra de progreso visual */}
                 <div className="flex justify-between mb-8 relative">
                     <div className="absolute top-1/2 left-0 right-0 h-1 bg-fondo-borde -z-10 -translate-y-1/2 rounded-full"></div>

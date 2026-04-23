@@ -188,15 +188,19 @@ namespace backend.Controllers
 
         [Authorize(Roles = "camarero,jefe")]
         [HttpGet("hoy")]
-        public async Task<IActionResult> GetReservasHoy()
+        public async Task<IActionResult> GetReservasHoy([FromQuery] string? fecha = null)
         {
-            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            DateOnly fechaConsulta;
+            if (string.IsNullOrEmpty(fecha) || !DateOnly.TryParseExact(fecha, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out fechaConsulta))
+            {
+                fechaConsulta = DateOnly.FromDateTime(DateTime.Now);
+            }
             
             var reservasHoy = await _context.Reservas
                 .AsNoTracking()
                 .Include(r => r.Usuario)
                 .Include(r => r.Mesa)
-                .Where(r => r.FechaReserva == hoy)
+                .Where(r => r.FechaReserva == fechaConsulta)
                 .OrderBy(r => r.HoraInicio)
                 .Select(r => new {
                     r.Id,
