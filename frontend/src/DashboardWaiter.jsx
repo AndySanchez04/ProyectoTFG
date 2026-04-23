@@ -48,18 +48,22 @@ export default function DashboardWaiter() {
         // 1. Procesar Productos
         const prods = resProductos.data;
         const dataEstructurada = { Comida: {}, Bebidas: {} };
-        const categoriasBebida = ["Cervezas", "Refrescos", "Cócteles"];
-        const categoriasComida = ["Tacos", "Quesadillas", "Hamburguesas", "Nachos", "Especialidades", "Raciones", "Postres"];
+        const categoriasBebida = ["Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros"];
         
-        // Inicializar arrays vacíos para cada categoría
+        // Inicializar categorías base para mantener el orden deseado
         categoriasBebida.forEach(c => dataEstructurada.Bebidas[c] = []);
-        categoriasComida.forEach(c => dataEstructurada.Comida[c] = []);
+        ["Tacos", "Quesadillas", "Hamburguesas", "Nachos", "Especialidades", "Raciones", "Ensaladas", "Postres", "MenuDiario"].forEach(c => dataEstructurada.Comida[c] = []);
 
         prods.forEach(p => {
-          if (categoriasBebida.includes(p.categoria)) {
-            dataEstructurada.Bebidas[p.categoria].push({ id: p.id, nombre: p.nombre, precio: p.precio });
-          } else if (categoriasComida.includes(p.categoria)) {
-            dataEstructurada.Comida[p.categoria].push({ id: p.id, nombre: p.nombre, precio: p.precio });
+          let cat = p.categoria || "Varios";
+          if (cat === "Entrante" || cat === "Entrantes") cat = "Postres";
+          
+          if (categoriasBebida.includes(cat)) {
+            if (!dataEstructurada.Bebidas[cat]) dataEstructurada.Bebidas[cat] = [];
+            dataEstructurada.Bebidas[cat].push({ id: p.id, nombre: p.nombre, precio: p.precio });
+          } else {
+            if (!dataEstructurada.Comida[cat]) dataEstructurada.Comida[cat] = [];
+            dataEstructurada.Comida[cat].push({ id: p.id, nombre: p.nombre, precio: p.precio });
           }
         });
         
@@ -84,14 +88,14 @@ export default function DashboardWaiter() {
     fetchInicial();
   }, []);
 
-  // Cargar bebidas pendientes desde la API
+  // Cargar bebidas agrupadas por ticket (diseño tipo cocina)
   const fetchBebidasPendientes = async () => {
     try {
       setCargandoBebidas(true);
-      const response = await axios.get('http://localhost:5105/api/comandas/bebidas-pendientes');
+      const response = await axios.get('http://localhost:5105/api/comandas/barra');
       setBebidasPendientes(response.data);
     } catch (error) {
-      console.error("Error al obtener bebidas pendientes:", error);
+      console.error("Error al obtener bebidas agrupadas:", error);
     } finally {
       setCargandoBebidas(false);
     }
@@ -260,13 +264,29 @@ export default function DashboardWaiter() {
     }
   };
 
+  const toggleGluten = (prod) => {
+    const itemCarr = carrito[prod.id];
+    if (!itemCarr) {
+      // Si no está en el carrito, lo añadimos con cantidad 1 y la nota
+      modificarCantidad(prod, 1);
+      setTimeout(() => {
+        actualizarNota(prod, "SIN GLUTEN");
+      }, 50);
+      return;
+    }
+
+    const nuevaNota = itemCarr.nota === "SIN GLUTEN" ? "" : "SIN GLUTEN";
+    actualizarNota(prod, nuevaNota);
+  };
+
   // Renderizado de las filas de productos
-  const renderListaProductos = (lista) => {
+  const renderListaProductos = (lista, esComida = false) => {
     return lista.map(prod => {
       const itemCarr = carrito[prod.id];
       const cantidad = itemCarr?.cantidad || 0;
       const nota = itemCarr?.nota || "";
       const mostrarNota = notasAbiertas[prod.id] && cantidad > 0;
+      const isGlutenFree = nota.toUpperCase().includes("SIN GLUTEN");
 
       return (
         <div key={prod.id} className="flex flex-col border-b border-fondo-borde bg-fondo-tarjeta">
@@ -276,14 +296,25 @@ export default function DashboardWaiter() {
               <p className="text-gray-400 mt-1">{prod.precio.toFixed(2)}€</p>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               {cantidad > 0 && (
-                <button 
-                  onClick={() => toggleNota(prod.id)}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center text-xl transition-all shadow-md touch-manipulation border ${mostrarNota || nota ? 'bg-mostaza border-mostaza text-black' : 'bg-fondo border-fondo-borde text-gray-400'}`}
-                >
-                  📝
-                </button>
+                <>
+                  {esComida && (
+                    <button 
+                      onClick={() => toggleGluten(prod)}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center text-xl transition-all shadow-md touch-manipulation border ${isGlutenFree ? 'bg-orange-500 border-orange-500 text-white' : 'bg-fondo border-fondo-borde text-gray-400'}`}
+                      title="Sin Gluten"
+                    >
+                      🌾
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => toggleNota(prod.id)}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center text-xl transition-all shadow-md touch-manipulation border ${mostrarNota || nota ? 'bg-mostaza border-mostaza text-black' : 'bg-fondo border-fondo-borde text-gray-400'}`}
+                  >
+                    📝
+                  </button>
+                </>
               )}
 
               <div className="flex items-center space-x-3 bg-fondo shadow-inner rounded-full p-1 pl-2 border border-fondo-borde">
@@ -425,7 +456,9 @@ export default function DashboardWaiter() {
                 {tipo}
               </h2>
               
-              {Object.entries(categorias).map(([nombreCategoria, listaProductos]) => (
+              {Object.entries(categorias)
+                .filter(([_, lista]) => lista.length > 0)
+                .map(([nombreCategoria, listaProductos]) => (
                 <div key={nombreCategoria} className="mt-2 px-3">
                   {/* Botón Acordeón Grande */}
                   <button
@@ -441,7 +474,7 @@ export default function DashboardWaiter() {
                   {/* Contenido Desplegable */}
                   {categoriasExpandidas[nombreCategoria] && (
                     <div className="mt-2 mb-4 rounded-xl overflow-hidden border border-fondo-borde bg-fondo">
-                      {renderListaProductos(listaProductos)}
+                      {renderListaProductos(listaProductos, tipo === 'Comida')}
                     </div>
                   )}
                 </div>
@@ -465,32 +498,73 @@ export default function DashboardWaiter() {
               <p className="text-xl text-gray-400 font-bold">Sin bebidas pendientes</p>
             </div>
           ) : (
-            bebidasPendientes.map((bebida) => (
-              <div key={bebida.idPedido} className="bg-fondo-tarjeta border-2 border-fondo-borde rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="bg-mostaza/20 text-mostaza font-bold px-3 py-1 rounded-full text-sm">
-                      Mesa {bebida.mesa}
-                    </span>
-                    <h3 className="text-white text-2xl font-bold mt-2">
-                      <span className="text-mostaza mr-2">{bebida.cantidad}x</span>
-                      {bebida.nombreBebida}
-                    </h3>
-                  </div>
-                  <div className="bg-fondo rounded-lg p-2 text-center border border-fondo-borde">
-                    <p className="text-gray-500 text-xs font-bold uppercase mb-1">Camarero</p>
-                    <p className="text-gray-300 font-medium text-sm">{bebida.camarero}</p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {bebidasPendientes.map((ticket) => {
+                const ahora = new Date();
+                const ticketHora = new Date(ticket.fechaHora);
+                const diff = Math.floor((ahora - ticketHora) / 60000);
                 
-                <button
-                  onClick={() => abrirModalServir(bebida)}
-                  className="w-full bg-mostaza hover:bg-mostaza/80 active:bg-mostaza/60 active:scale-95 text-black py-4 rounded-xl font-bold text-xl uppercase tracking-wider transition-all shadow-md touch-manipulation"
-                >
-                  Servido
-                </button>
-              </div>
-            ))
+                return (
+                  <div key={`${ticket.mesa}-${ticket.fechaHora}`} className="bg-fondo-tarjeta border border-fondo-borde rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                    {/* Cabecera del Ticket (Estilo Cocina) */}
+                    <div className="bg-mostaza p-4 flex justify-between items-center text-black">
+                      <div>
+                        <h3 className="text-2xl font-black uppercase">Mesa {ticket.mesa}</h3>
+                        <p className="text-xs font-bold opacity-70 uppercase tracking-tighter">{ticket.camarero}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold block opacity-70 uppercase">Espera</span>
+                        <span className="text-xl font-black">{diff} min</span>
+                      </div>
+                    </div>
+
+                    {/* Lista de Bebidas */}
+                    <div className="p-4 flex-1 bg-fondo/30">
+                      <ul className="space-y-3">
+                        {ticket.bebidas.map((b) => (
+                          <li key={b.idLinea} className="flex items-center justify-between border-b border-fondo-borde pb-2 last:border-0">
+                            <div className="flex-1">
+                              <p className="text-white font-bold text-lg leading-tight">
+                                <span className="bg-mostaza/20 text-mostaza px-1.5 rounded mr-2 font-black">{b.cantidad}x</span>
+                                {b.nombreBebida}
+                              </p>
+                              {b.notas && <p className="text-mostaza text-xs font-bold mt-1 uppercase italic">📝 {b.notas}</p>}
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setBebidaAServir({ idPedido: b.idLinea, nombreBebida: b.nombreBebida });
+                                setConfirmarServir(true);
+                              }}
+                              className="ml-3 w-10 h-10 bg-mostaza/10 hover:bg-mostaza text-mostaza hover:text-black rounded-lg transition-all border border-mostaza/30 flex items-center justify-center shrink-0"
+                            >
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Botón Servir Todo */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Servir todas las líneas de este ticket
+                          await Promise.all(ticket.bebidas.map(b => 
+                            axios.put(`http://localhost:5105/api/comandas/linea/${b.idLinea}/servir`)
+                          ));
+                          fetchBebidasPendientes();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className="w-full bg-fondo border-t border-fondo-borde hover:bg-mostaza/10 text-mostaza py-3 font-black uppercase text-xs tracking-widest transition-colors"
+                    >
+                      Servir Todo el Ticket
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </main>
       )}

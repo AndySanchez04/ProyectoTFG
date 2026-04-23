@@ -27,7 +27,7 @@ public class ComandasController : ControllerBase
     public async Task<ActionResult<IEnumerable<object>>> GetBebidasPendientes()
     {
         // Categorías que consideramos bebidas
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Refrescos", "Cócteles" };
+        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
 
         var bebidasPendientes = await _context.LineasComanda
             .Include(l => l.Comanda)
@@ -52,7 +52,7 @@ public class ComandasController : ControllerBase
     [HttpGet("cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetComandasCocina()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Refrescos", "Cócteles" };
+        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
 
         // 1. Obtener los IDs de las comandas que tienen al menos un plato (no bebida) por servir
         var comandaIdsActivas = await _context.LineasComanda
@@ -92,11 +92,56 @@ public class ComandasController : ControllerBase
         return Ok(ticketsPorMesa);
     }
 
+    // GET: api/comandas/barra
+    [HttpGet("barra")]
+    public async Task<ActionResult<IEnumerable<object>>> GetComandasBarra()
+    {
+        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
+
+        var comandaIdsActivas = await _context.LineasComanda
+            .Include(l => l.ProductoMenu)
+            .Where(l => !l.Servida && categoriasBebida.Contains(l.ProductoMenu.Categoria))
+            .Select(l => l.ComandaId)
+            .Distinct()
+            .ToListAsync();
+
+        var lineasDeInteres = await _context.LineasComanda
+            .Include(l => l.Comanda)
+                .ThenInclude(c => c.Mesa)
+            .Include(l => l.Comanda)
+                .ThenInclude(c => c.Usuario)
+            .Include(l => l.ProductoMenu)
+            .Where(l => comandaIdsActivas.Contains(l.ComandaId) && 
+                   categoriasBebida.Contains(l.ProductoMenu.Categoria))
+            .ToListAsync();
+
+        var ticketsPorMesa = lineasDeInteres
+            .GroupBy(l => new { l.Comanda.Mesa.NumeroMesa, l.Comanda.FechaHora, l.Comanda.Usuario.Nombre })
+            .Select(g => new
+            {
+                Mesa = g.Key.NumeroMesa,
+                FechaHora = g.Key.FechaHora,
+                Camarero = g.Key.Nombre,
+                Bebidas = g.Select(l => new 
+                {
+                    IdLinea = l.Id,
+                    Cantidad = l.Cantidad,
+                    NombreBebida = l.ProductoMenu.Nombre,
+                    Notas = l.Notas,
+                    Servida = l.Servida
+                }).ToList()
+            })
+            .OrderBy(t => t.FechaHora)
+            .ToList();
+
+        return Ok(ticketsPorMesa);
+    }
+
     // GET: api/comandas/historial-cocina
     [HttpGet("historial-cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialCocina()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Refrescos", "Cócteles" };
+        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
         
         var ahora = DateTime.Now;
         var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);
@@ -141,7 +186,7 @@ public class ComandasController : ControllerBase
     [HttpGet("historial-barra")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialBarra()
     {
-        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Refrescos", "Cócteles" };
+        var categoriasBebida = new[] { "Bebidas", "Cervezas", "Vinos", "Refrescos", "Zumos y Batidos", "Copas", "Cócteles", "Tequila y Mezcal", "Otros" };
         
         var ahora = DateTime.Now;
         var primerDiaMes = new DateTime(ahora.Year, ahora.Month, 1);

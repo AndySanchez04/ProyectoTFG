@@ -3,7 +3,9 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, Cell
@@ -69,7 +71,7 @@ export default function DashboardAdmin() {
       ["05/03/2026", "Ventas en sala", "1.100,00€"]
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 40,
       head: [['Fecha', 'Concepto', 'Ingresos']],
       body: dummyData,
@@ -81,10 +83,12 @@ export default function DashboardAdmin() {
   const tabs = [
     { id: 'usuarios', label: 'Usuarios' },
     { id: 'empleados', label: 'Empleados' },
+    { id: 'horarios', label: 'Horarios' },
     { id: 'menu', label: 'Menú y Carta' },
     { id: 'inventario', label: 'Inventario' },
     { id: 'gastos', label: 'Gastos' },
     { id: 'finanzas', label: 'Finanzas' },
+    { id: 'resenas', label: 'Reseñas' },
   ];
 
   return (
@@ -143,6 +147,17 @@ export default function DashboardAdmin() {
           {isProfileMenuOpen && (
             <div className="absolute bottom-full mb-2 left-4 right-4 bg-fondo-tarjeta rounded-xl shadow-xl border border-fondo-borde overflow-hidden z-50">
               <button 
+                onClick={() => { setActiveTab('configuracion'); setIsProfileMenuOpen(false); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
+                className="w-full text-left px-4 py-3 flex items-center gap-3 text-white hover:bg-mostaza/10 hover:text-mostaza transition-colors border-b border-fondo-borde"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="font-semibold text-sm">Configuración</span>
+              </button>
+              <button 
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-3 flex items-center gap-3 text-mostaza hover:bg-mostaza/10 transition-colors"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
@@ -199,10 +214,13 @@ export default function DashboardAdmin() {
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {activeTab === 'usuarios' && <EmpleadosModule loggedInUserId={loggedInUserId} />}
                 {activeTab === 'empleados' && <GestionEmpleadosModule />}
+                {activeTab === 'horarios' && <HorariosModule />}
                 {activeTab === 'menu' && <MenuModule />}
                 {activeTab === 'inventario' && <InventarioModule />}
                 {activeTab === 'gastos' && <GastosModule />}
                 {activeTab === 'finanzas' && <FinanzasModule exportToPDF={exportToPDF} />}
+                {activeTab === 'resenas' && <ResenasModule />}
+                {activeTab === 'configuracion' && <ConfiguracionModule />}
             </div>
           </div>
         </main>
@@ -526,7 +544,7 @@ function MenuModule() {
     nombre: '', 
     descripcion: '', 
     precio: 0, 
-    categoria: 'Principal', 
+    categoria: 'Tacos', 
     disponible: true 
   });
   
@@ -568,7 +586,7 @@ function MenuModule() {
   };
 
   const openAddModal = () => {
-    setFormData({ nombre: '', descripcion: '', precio: 0, categoria: 'Entrante', disponible: true });
+    setFormData({ nombre: '', descripcion: '', precio: 0, categoria: 'Tacos', disponible: true });
     setModal({ show: true, editingProduct: null });
   };
 
@@ -983,7 +1001,7 @@ function InventarioModule() {
                     <span className="font-semibold text-white">{art.nombre}</span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold border ${art.cantidadActual < 5 ? 'bg-red-950/30 text-red-400 border-red-900/50' : 'bg-mostaza/20 text-mostaza border-mostaza/30'}`}>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold border bg-mostaza/20 text-mostaza border-mostaza/30">
                     {art.cantidadActual}
                   </span>
                 </td>
@@ -1163,6 +1181,25 @@ function GestionEmpleadosModule() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    const dniRegex = /^\d{8}[A-Za-z]$/;
+    if (!dniRegex.test(formData.dni)) {
+      showToast('Formato de DNI incorrecto (8 números y 1 letra)', 'error');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.correo)) {
+      showToast('Formato de correo electrónico incorrecto', 'error');
+      return;
+    }
+
+    const phoneClean = formData.telefono ? formData.telefono.replace(/[\s-]/g, '') : '';
+    if (phoneClean && !/^\+?\d{9,15}$/.test(phoneClean)) {
+      showToast('Formato de teléfono incorrecto (mínimo 9 dígitos)', 'error');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
@@ -1176,8 +1213,9 @@ function GestionEmpleadosModule() {
       setModal({ show: false, mode: 'add' });
       fetchEmpleados();
     } catch (error) {
-      console.error(error);
-      showToast('Error al guardar', 'error');
+      console.error(error.response?.data || error);
+      const errorMsg = error.response?.data?.inner || error.response?.data?.error || 'Error al guardar';
+      showToast(`Error: ${errorMsg}`, 'error');
     }
   };
 
@@ -1803,3 +1841,586 @@ function FinanzasModule({ exportToPDF }) {
     </div>
   );
 }
+
+function HorariosModule() {
+  const [empleados, setEmpleados] = useState([]);
+  const [horarios, setHorarios] = useState({});
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const tableRef = React.useRef(null);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+  useEffect(() => {
+    fetchEmpleados();
+    const savedHorarios = localStorage.getItem('horarios_semanales');
+    if (savedHorarios) {
+      setHorarios(JSON.parse(savedHorarios));
+    }
+  }, []);
+
+  const fetchEmpleados = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/api/empleados`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEmpleados(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleCellChange = (empId, dia, fila, value) => {
+    const key = `${empId}-${dia}-${fila}`;
+    const newHorarios = { ...horarios, [key]: value };
+    setHorarios(newHorarios);
+    localStorage.setItem('horarios_semanales', JSON.stringify(newHorarios));
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF('landscape');
+    const range = getRangeSemanales();
+    doc.text(`Horarios de la Semana (${range})`, 14, 20);
+    
+    const bodyData = [];
+    empleados.forEach(emp => {
+      const row1 = [emp.nombre + ' ' + emp.apellidos];
+      const row2 = [''];
+      diasSemana.forEach(dia => {
+        row1.push(horarios[`${emp.id}-${dia}-1`] || '');
+        row2.push(horarios[`${emp.id}-${dia}-2`] || '');
+      });
+      bodyData.push(row1);
+      bodyData.push(row2);
+    });
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['', ...diasSemana]],
+      body: bodyData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2, fontStyle: 'bold', halign: 'center', lineColor: [255, 255, 255], lineWidth: 0.1 },
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+      didParseCell: function(data) {
+        if (data.section === 'body') {
+          const empIndex = Math.floor(data.row.index / 2);
+          if (empIndex % 2 === 0) {
+            data.cell.styles.fillColor = [234, 179, 8];
+            data.cell.styles.textColor = [0, 0, 0];
+          } else {
+            data.cell.styles.fillColor = [0, 0, 0];
+            data.cell.styles.textColor = [255, 255, 255];
+          }
+        }
+      }
+    });
+
+    doc.save("Horarios.pdf");
+    showToast('Exportado a PDF correctamente', 'success');
+  };
+
+  const exportExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Horarios');
+    const range = getRangeSemanales();
+
+    // Título en la primera fila
+    worksheet.mergeCells('A1:H1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = `Horarios Semanales: ${range}`;
+    titleCell.font = { size: 16, bold: true, color: { argb: 'FFEAB308' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+    
+    worksheet.addRow([]); // Espacio en blanco
+
+    // Estilos base
+    const headerStyle = {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } },
+      font: { color: { argb: 'FFFFFFFF' }, bold: true, size: 12 },
+      alignment: { horizontal: 'center' },
+      border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    };
+
+    const mostazaStyle = {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAB308' } },
+      font: { color: { argb: 'FF000000' }, bold: true },
+      alignment: { horizontal: 'center' },
+      border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    };
+
+    const blackStyle = {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } },
+      font: { color: { argb: 'FFFFFFFF' }, bold: true },
+      alignment: { horizontal: 'center' },
+      border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    };
+
+    // Cabecera
+    const columns = [{ header: 'Empleado', key: 'empleado', width: 25 }];
+    diasSemana.forEach(dia => {
+      columns.push({ header: dia, key: dia, width: 20 });
+    });
+    worksheet.columns = columns;
+
+    // Aplicar estilo a cabecera (ahora en la fila 3)
+    worksheet.getRow(3).eachCell((cell) => {
+      cell.style = headerStyle;
+    });
+
+    // Filas de datos
+    empleados.forEach((emp, index) => {
+      const isEven = index % 2 === 0;
+      const currentStyle = isEven ? mostazaStyle : blackStyle;
+
+      const row1Data = { empleado: emp.nombre + ' ' + emp.apellidos };
+      const row2Data = { empleado: '' };
+
+      diasSemana.forEach(dia => {
+        row1Data[dia] = horarios[`${emp.id}-${dia}-1`] || '';
+        row2Data[dia] = horarios[`${emp.id}-${dia}-2`] || '';
+      });
+
+      const r1 = worksheet.addRow(row1Data);
+      const r2 = worksheet.addRow(row2Data);
+
+      r1.eachCell((cell) => { cell.style = currentStyle; });
+      r2.eachCell((cell) => { cell.style = currentStyle; });
+      
+      // Combinar celdas del nombre del empleado
+      worksheet.mergeCells(r1.number, 1, r2.number, 1);
+      worksheet.getCell(r1.number, 1).alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+
+    // Generar archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = "Horarios_MildLimon.xlsx";
+    link.click();
+
+    showToast('Exportado a Excel con estilos correctamente', 'success');
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  const getRangeSemanales = () => {
+    const today = new Date();
+    const day = today.getDay(); // 0 (Dom) a 6 (Sab)
+    const diff = today.getDate() - (day === 0 ? 6 : day - 1); // Ajustar a Lunes
+    const monday = new Date(today.setDate(diff));
+    const sunday = new Date(today.setDate(diff + 6));
+    
+    const formatDate = (date) => {
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    };
+
+    return `${formatDate(monday)} - ${formatDate(sunday)}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-fondo-tarjeta p-6 rounded-3xl shadow-sm border border-fondo-borde flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <h3 className="text-xl font-bold text-white">Gestor de Turnos Semanales</h3>
+            <span className="px-3 py-1 bg-mostaza/10 border border-mostaza/20 text-mostaza text-xs font-bold rounded-full">
+                {getRangeSemanales()}
+            </span>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={exportPDF} className="bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/40 px-4 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2">
+            📄 PDF
+          </button>
+          <button onClick={exportExcel} className="bg-green-500/20 text-green-400 border border-green-500/50 hover:bg-green-500/40 px-4 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2">
+            📊 Excel
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-transparent rounded-xl shadow-2xl overflow-hidden border border-white/20">
+        <div className="overflow-x-auto">
+          <table id="tabla-horarios-export" className="w-full text-center text-sm whitespace-nowrap border-collapse" ref={tableRef}>
+            <thead className="bg-black text-white font-black uppercase text-xs sm:text-sm">
+              <tr>
+                <th className="px-6 py-4 border border-white/20 min-w-[150px]"></th>
+                {diasSemana.map(dia => (
+                  <th key={dia} className="px-4 py-4 border border-white/20 min-w-[160px] tracking-wider">{dia}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {empleados.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-8 text-white bg-black">No hay empleados registrados o cargando...</td></tr>
+              ) : (
+                empleados.map((emp, index) => {
+                  const isEven = index % 2 === 0;
+                  const bgClass = isEven ? 'bg-mostaza text-black' : 'bg-black text-white';
+                  const inputClass = isEven 
+                    ? 'text-black placeholder-black/40 focus:bg-white/30'
+                    : 'text-white placeholder-white/40 focus:bg-white/20';
+
+                  return (
+                    <React.Fragment key={emp.id}>
+                      <tr className={`${bgClass} font-bold uppercase`}>
+                        <td rowSpan={2} className="px-6 py-4 border border-white/30 font-black text-base align-middle text-left">
+                          {emp.nombre} {emp.apellidos}
+                        </td>
+                        {diasSemana.map(dia => {
+                          const key1 = `${emp.id}-${dia}-1`;
+                          return (
+                            <td key={dia} className="border border-white/30 p-0 relative h-14">
+                              <input 
+                                type="text" 
+                                className={`w-full h-full text-center border-none outline-none transition-colors font-black uppercase bg-transparent text-sm ${inputClass}`}
+                                placeholder="-"
+                                value={horarios[key1] || ''}
+                                onChange={(e) => handleCellChange(emp.id, dia, 1, e.target.value)}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className={`${bgClass} font-bold uppercase`}>
+                        {diasSemana.map(dia => {
+                          const key2 = `${emp.id}-${dia}-2`;
+                          return (
+                            <td key={dia} className="border border-white/30 p-0 relative h-14">
+                              <input 
+                                type="text" 
+                                className={`w-full h-full text-center border-none outline-none transition-colors font-black uppercase bg-transparent text-sm ${inputClass}`}
+                                placeholder="-"
+                                value={horarios[key2] || ''}
+                                onChange={(e) => handleCellChange(emp.id, dia, 2, e.target.value)}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {toast.show && createPortal(
+        <div className={`fixed bottom-6 right-6 lg:bottom-8 lg:right-8 px-5 py-3.5 rounded-xl shadow-2xl text-white transform transition-all duration-300 z-[100] flex items-center gap-3 ${toast.type === 'success' ? 'bg-fondo-tarjeta border border-mostaza shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-fondo-tarjeta border border-red-500'}`}>
+          {toast.type === 'success' ? (
+            <svg className="w-5 h-5 text-mostaza" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+          ) : (
+            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          )}
+          <span className="font-medium text-sm text-white">{toast.message}</span>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function ConfiguracionModule() {
+  const [mensajes, setMensajes] = useState([]);
+  const [nuevoMensaje, setNuevoMensaje] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchMensajes();
+  }, []);
+
+  const fetchMensajes = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/tacomensajes`);
+      setMensajes(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!nuevoMensaje.trim()) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/tacomensajes`, { texto: nuevoMensaje.trim() }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNuevoMensaje('');
+      showToast('Frase añadida correctamente', 'success');
+      fetchMensajes();
+    } catch (e) {
+      console.error(e);
+      showToast('Error al añadir la frase', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/tacomensajes/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Frase eliminada', 'success');
+      fetchMensajes();
+    } catch (e) {
+      console.error(e);
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="bg-fondo-tarjeta p-8 rounded-3xl shadow-xl border border-fondo-borde">
+        <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+          <img src="/images/Taco.png" alt="Taco" className="w-12 h-12 object-cover rounded-full bg-mostaza/20 p-1 border border-mostaza" onError={(e) => e.target.style.display = 'none'} />
+          Configuración de Taco
+        </h3>
+        <p className="text-gray-400 mb-8">Administra las frases que el avatar de Taco mostrará a los clientes en su zona.</p>
+        
+        <form onSubmit={handleAdd} className="flex gap-4 mb-8 flex-col sm:flex-row">
+          <input 
+            type="text" 
+            value={nuevoMensaje}
+            onChange={(e) => setNuevoMensaje(e.target.value)}
+            placeholder="Escribe una nueva frase para Taco..."
+            className="flex-1 bg-fondo border border-fondo-borde rounded-xl px-4 py-3 text-white focus:outline-none focus:border-mostaza transition-colors"
+            maxLength={250}
+          />
+          <button type="submit" className="bg-mostaza text-black font-bold px-6 py-3 rounded-xl hover:bg-mostaza/90 transition-transform active:scale-95 shadow-lg shadow-mostaza/20">
+            Añadir Frase
+          </button>
+        </form>
+
+        <div className="space-y-3">
+          <h4 className="text-mostaza font-semibold mb-4 uppercase tracking-wider text-sm">Frases Actuales ({mensajes.length})</h4>
+          {mensajes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-fondo/30 rounded-xl border border-dashed border-fondo-borde">
+              No hay frases configuradas. ¡Añade la primera!
+            </div>
+          ) : (
+            mensajes.map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-fondo/50 p-4 rounded-xl border border-fondo-borde group hover:border-mostaza/50 transition-colors">
+                <p className="text-white">"{m.texto}"</p>
+                <button 
+                  onClick={() => handleDelete(m.id)}
+                  className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-500/10 rounded-lg"
+                  title="Eliminar frase"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {toast.show && createPortal(
+        <div className={`fixed bottom-6 right-6 lg:bottom-8 lg:right-8 px-5 py-3.5 rounded-xl shadow-2xl text-white transform transition-all duration-300 z-[100] flex items-center gap-3 ${toast.type === 'success' ? 'bg-fondo-tarjeta border border-mostaza shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-fondo-tarjeta border border-red-500'}`}>
+          {toast.type === 'success' ? (
+            <svg className="w-5 h-5 text-mostaza" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+          ) : (
+            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          )}
+          <span className="font-medium text-sm text-white">{toast.message}</span>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function ResenasModule() {
+  const [resenas, setResenas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [modal, setModal] = useState({ show: false, resena: null, respuesta: '' });
+  const [enviando, setEnviando] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
+
+  useEffect(() => {
+    fetchResenas();
+  }, []);
+
+  const fetchResenas = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/resenas`);
+      setResenas(res.data);
+    } catch (e) {
+      console.error(e);
+      showToast('Error al cargar reseñas', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
+
+  const handleResponder = async (e) => {
+    e.preventDefault();
+    if (!modal.respuesta.trim()) return;
+    setEnviando(true);
+    try {
+      await axios.post(`${API_URL}/api/resenas/responder/${modal.resena.id}`, 
+        JSON.stringify(modal.respuesta),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      showToast('Respuesta enviada y guardada', 'success');
+      setModal({ show: false, resena: null, respuesta: '' });
+      fetchResenas();
+    } catch (e) {
+      console.error(e);
+      showToast('Error al enviar respuesta', 'error');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="h-64 flex flex-col items-center justify-center space-y-4">
+      <div className="w-12 h-12 border-4 border-mostaza/20 border-t-mostaza rounded-full animate-spin"></div>
+      <span className="text-sm font-medium text-gray-400">Cargando muro de opiniones...</span>
+    </div>
+  );
+
+  return (
+    <div className="bg-fondo-tarjeta rounded-3xl border border-fondo-borde overflow-hidden shadow-2xl">
+      <div className="p-6 border-b border-fondo-borde bg-fondo-tarjeta/50 flex justify-between items-center">
+        <h3 className="text-xl font-black text-white uppercase tracking-tighter">Gestión de Reseñas</h3>
+        <span className="bg-mostaza/10 text-mostaza px-3 py-1 rounded-full text-xs font-bold border border-mostaza/20 uppercase">
+          {resenas.length} Comentarios
+        </span>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {resenas.length === 0 ? (
+          <div className="text-center py-20 text-gray-500 italic">No hay reseñas que gestionar aún.</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6">
+            {resenas.map(r => (
+              <div key={r.id} className="bg-fondo/40 border border-fondo-borde rounded-2xl p-6 flex flex-col md:flex-row gap-6 hover:border-mostaza/30 transition-all group">
+                <div className="shrink-0 flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-2xl bg-mostaza/10 flex items-center justify-center border border-mostaza/10 overflow-hidden shadow-lg">
+                    {r.usuarioFoto ? (
+                      <img src={r.usuarioFoto} alt="User" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-mostaza font-black text-2xl">{r.usuarioNombre.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex text-mostaza text-xs">
+                    {[...Array(5)].map((_, i) => (
+                      <span key={i} className={i < r.estrellas ? "opacity-100" : "opacity-20"}>★</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-white text-lg">{r.usuarioNombre}</h4>
+                      <p className="text-xs text-gray-500 font-medium">{r.usuarioEmail || 'Sin email (Invitado)'}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-600 font-black uppercase tracking-widest bg-fondo px-2 py-1 rounded border border-fondo-borde">
+                      {new Date(r.fecha).toLocaleDateString()} {new Date(r.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  
+                  <div className="bg-black/20 p-4 rounded-xl border border-white/5 relative">
+                    <p className="text-gray-300 italic text-sm leading-relaxed">"{r.comentario}"</p>
+                  </div>
+
+                  {r.respuestaJefe ? (
+                    <div className="mt-4 bg-mostaza/5 border border-mostaza/20 p-4 rounded-xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-2 h-2 rounded-full bg-mostaza"></span>
+                        <span className="text-[10px] font-black text-mostaza uppercase tracking-widest">Tu Respuesta</span>
+                      </div>
+                      <p className="text-sm text-gray-300 leading-relaxed">{r.respuestaJefe}</p>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setModal({ show: true, resena: r, respuesta: '' })}
+                      className="mt-2 text-mostaza font-bold text-xs uppercase tracking-widest hover:text-white transition-colors flex items-center gap-2 group-hover:translate-x-1 duration-300"
+                    >
+                      <span>↪ Responder al cliente</span>
+                      {!r.usuarioEmail && <span className="text-[9px] text-red-500/50 normal-case">(No tiene email)</span>}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {modal.show && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="absolute inset-0" onClick={() => setModal({ show: false, resena: null, respuesta: '' })}></div>
+          <div className="bg-fondo-tarjeta border border-fondo-borde rounded-[2.5rem] shadow-2xl relative z-10 w-full max-w-lg p-8 animate-in zoom-in-95 duration-300">
+            <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Responder a {modal.resena?.usuarioNombre}</h3>
+            <p className="text-gray-400 text-sm mb-6 font-medium">Se enviará un correo electrónico personalizado con tu respuesta.</p>
+            
+            <form onSubmit={handleResponder} className="space-y-6">
+              <div className="bg-black/30 p-4 rounded-2xl border border-white/5 mb-4">
+                <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Comentario original</p>
+                <p className="text-sm text-gray-400 italic">"{modal.resena?.comentario}"</p>
+              </div>
+
+              <textarea 
+                required
+                value={modal.respuesta}
+                onChange={(e) => setModal({ ...modal, respuesta: e.target.value })}
+                className="w-full bg-fondo border border-fondo-borde rounded-2xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-mostaza transition-all min-h-[150px] resize-none text-sm"
+                placeholder="Escribe tu respuesta aquí..."
+              />
+
+              <div className="flex gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setModal({ show: false, resena: null, respuesta: '' })}
+                  className="flex-1 py-4 bg-transparent border border-fondo-borde text-gray-400 font-bold rounded-2xl hover:bg-white/5 transition-all uppercase tracking-widest text-xs"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={enviando}
+                  className="flex-1 py-4 bg-mostaza text-black font-black rounded-2xl hover:bg-yellow-500 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-mostaza/20 uppercase tracking-widest text-xs disabled:opacity-50"
+                >
+                  {enviando ? "ENVIANDO..." : "ENVIAR RESPUESTA"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {toast.show && createPortal(
+        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl text-white transform transition-all duration-300 z-[110] flex items-center gap-3 border ${toast.type === 'success' ? 'bg-fondo-tarjeta border-mostaza shadow-mostaza/20' : 'bg-fondo-tarjeta border-red-500'}`}>
+          <span className="font-bold text-sm">{toast.message}</span>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+

@@ -17,6 +17,40 @@ namespace backend.Data
             // Asegurar que la base de datos y las tablas existen
             context.Database.EnsureCreated();
 
+            // Crear tabla Empleados si no existe porque EnsureCreated no la crea si la BD ya existía
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS Empleados (
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
+                    Nombre VARCHAR(100) NOT NULL,
+                    Apellidos VARCHAR(100) NOT NULL,
+                    DNI VARCHAR(20) NOT NULL,
+                    Correo VARCHAR(150) NOT NULL,
+                    Telefono VARCHAR(50),
+                    Sueldo DECIMAL(10,2) NOT NULL,
+                    Rango VARCHAR(50) NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS TacoMensajes (
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
+                    Texto VARCHAR(255) NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS Resenas (
+                    Id INT AUTO_INCREMENT PRIMARY KEY,
+                    UsuarioNombre VARCHAR(255) NOT NULL,
+                    UsuarioEmail VARCHAR(255),
+                    UsuarioFoto TEXT,
+                    Estrellas INT NOT NULL,
+                    Comentario TEXT NOT NULL,
+                    RespuestaJefe TEXT,
+                    Fecha DATETIME NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
             // TAREA 3: Limpieza inicial
             var todasLasMesas = context.MesasRestaurantes.ToList();
             
@@ -74,6 +108,15 @@ namespace backend.Data
                 "Raciones", "Zumos y Batidos", "Copas", "Ensaladas", "Especialidades", "Cócteles",
                 "Otros", "Tequila y Mezcal"
             };
+
+            // TAREA: Renombrar categorías erróneas en productos antes de limpiar
+            var productosConEntrante = context.ProductosMenus.Where(p => p.Categoria == "Entrante" || p.Categoria == "Entrantes").ToList();
+            foreach (var p in productosConEntrante)
+            {
+                p.Categoria = "Postres";
+                context.ProductosMenus.Update(p);
+            }
+            context.SaveChanges();
 
             var categoriasActuales = context.CategoriasMenu.ToList();
             foreach (var catActual in categoriasActuales)

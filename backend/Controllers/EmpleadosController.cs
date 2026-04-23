@@ -20,6 +20,7 @@ public class EmpleadosController : ControllerBase
 
     // GET: api/empleados
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Empleado>>> GetEmpleados()
     {
         return await _context.Empleados.ToListAsync();
@@ -39,9 +40,17 @@ public class EmpleadosController : ControllerBase
     [Authorize(Roles = "jefe")]
     public async Task<ActionResult<Empleado>> PostEmpleado(Empleado empleado)
     {
-        _context.Empleados.Add(empleado);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetEmpleado), new { id = empleado.Id }, empleado);
+        try
+        {
+            _context.Empleados.Add(empleado);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetEmpleado), new { id = empleado.Id }, empleado);
+        }
+        catch (Exception ex)
+        {
+            var inner = ex.InnerException != null ? ex.InnerException.Message : "";
+            return BadRequest(new { error = ex.Message, inner = inner });
+        }
     }
 
     // PUT: api/empleados/5

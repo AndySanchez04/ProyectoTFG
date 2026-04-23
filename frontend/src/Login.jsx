@@ -48,7 +48,6 @@ export default function Login() {
             <div className="min-h-screen flex items-center justify-center">
                 <div className="bg-fondo-tarjeta p-8 rounded-2xl shadow-lg border border-fondo-borde w-full max-w-md">
                     <h1 className="text-4xl font-extrabold text-center mb-10 tracking-tight text-white">Iniciar Sesión</h1>
-                {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-300">Email</label>
@@ -82,6 +81,27 @@ export default function Login() {
                 </p>
             </div>
             </div>
+
+            {/* Error Pop-up Modal */}
+            {error && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-fondo-tarjeta border-2 border-red-500/30 rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+                        <div className="w-20 h-20 rounded-full bg-red-950/40 flex items-center justify-center mx-auto mb-5 border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                            <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">Acceso Denegado</h3>
+                        <p className="text-gray-300 mb-8">{error}</p>
+                        <button 
+                            onClick={() => setError('')} 
+                            className="w-full py-3.5 bg-fondo border border-fondo-borde text-white font-bold rounded-xl hover:bg-red-500/20 hover:border-red-500 hover:text-white transition-all shadow-lg"
+                        >
+                            Intentar de nuevo
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

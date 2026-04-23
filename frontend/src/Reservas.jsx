@@ -170,70 +170,89 @@ export default function Reservas() {
         const doc = new jsPDF();
         const primaryColor = [234, 179, 8]; // Mostaza
         
-        // Cabecera
-        doc.setFillColor(20, 20, 20);
-        doc.rect(0, 0, 210, 40, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.text('MILD & LIMON', 105, 25, { align: 'center' });
-        
-        // Contenido
-        doc.setTextColor(40, 40, 40);
-        doc.setFontSize(16);
-        doc.text('JUSTIFICANTE DE RESERVA', 20, 55);
-        
-        doc.setDrawColor(234, 179, 8);
-        doc.setLineWidth(1);
-        doc.line(20, 60, 190, 60);
-        
-        // Detalles en tabla o lista
-        doc.setFontSize(12);
-        const startY = 75;
-        const lineSpacing = 10;
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Código de Reserva:', 20, startY);
-        doc.setFont(undefined, 'normal');
-        doc.text(`#${reservaId || modifyingReservaId}`, 70, startY);
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Cliente:', 20, startY + lineSpacing);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${userName} (${userPhone})`, 70, startY + lineSpacing);
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Fecha y Hora:', 20, startY + lineSpacing * 2);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${fecha.split('-').reverse().join('/')} a las ${hora}`, 70, startY + lineSpacing * 2);
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Ubicación:', 20, startY + lineSpacing * 3);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${zona}`, 70, startY + lineSpacing * 3);
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Comensales:', 20, startY + lineSpacing * 4);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${personas} personas`, 70, startY + lineSpacing * 4);
-
-        // QR Code con manejo de errores y CORS
+        // Cargar Logo
+        let logoBase64 = null;
         try {
-            const qrData = `Reserva:${reservaId || modifyingReservaId}|Cliente:${userName}|Fecha:${fecha}|Hora:${hora}`;
-            const qrUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
-            const qrBase64 = await loadImageToBase64(qrUrl);
-            doc.addImage(qrBase64, 'PNG', 140, 70, 40, 40);
-        } catch (error) {
-            console.warn('No se pudo cargar el QR, generando PDF sin él:', error);
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text('(QR no disponible - Use código #)', 140, 115);
+            logoBase64 = await loadImageToBase64('/images/logo.jpg');
+        } catch (e) {
+            console.warn("Logo not found for PDF", e);
         }
+
+        // Fondo Cabecera Premium
+        doc.setFillColor(15, 15, 15);
+        doc.rect(0, 0, 210, 50, 'F');
+        
+        // Línea decorativa
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(0, 48, 210, 2, 'F');
+
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'JPEG', 20, 10, 30, 30);
+        }
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(28);
+        doc.setFont(undefined, 'bold');
+        doc.text('MILD & LIMON', 60, 25);
         
         doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text('Por favor, presente este código QR en la entrada del restaurante.', 20, 140);
-        doc.text('Mild & Limon - Calle Ficticia 123, Madrid.', 20, 145);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('GASTRONOMÍA & EXPERIENCIAS', 60, 33);
+        
+        // Título del Documento
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        doc.text('CONFIRMACIÓN DE RESERVA', 105, 70, { align: 'center' });
+        
+        // Cuerpo del Justificante
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.5);
+        doc.line(20, 75, 190, 75);
+
+        // Grid de Datos
+        doc.setFontSize(12);
+        const startY = 90;
+        const col1 = 30;
+        const col2 = 100;
+        const rowH = 12;
+
+        const drawRow = (label, value, y) => {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text(label, col1, y);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.text(value, col2, y);
+            doc.setDrawColor(245, 245, 245);
+            doc.line(col1, y + 4, 180, y + 4);
+        };
+
+        drawRow('Código:', `#${reservaId || modifyingReservaId}`, startY);
+        drawRow('Nombre:', userName, startY + rowH);
+        drawRow('Teléfono:', userPhone, startY + rowH * 2);
+        drawRow('Fecha:', fecha.split('-').reverse().join('/'), startY + rowH * 3);
+        drawRow('Hora:', hora, startY + rowH * 4);
+        drawRow('Ubicación:', zona, startY + rowH * 5);
+        drawRow('Comensales:', `${personas} personas`, startY + rowH * 6);
+
+        // Pie de página
+        doc.setFillColor(245, 245, 245);
+        doc.rect(20, 240, 170, 35, 'F');
+        
+        doc.setTextColor(80, 80, 80);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('INFORMACIÓN IMPORTANTE', 30, 250);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        doc.text('• Se ruega puntualidad. La mesa se mantendrá 15 min.', 30, 256);
+        doc.text('• Para cancelaciones, por favor llame al 696 32 48 97.', 30, 261);
+        doc.text('• Dirección: Avenida Juan Carlos I, 13, Alcalá de Henares.', 30, 266);
+        
+        doc.setTextColor(150, 150, 150);
+        doc.text('Gracias por confiar en Mild & Limon', 105, 285, { align: 'center' });
         
         return doc;
     };
