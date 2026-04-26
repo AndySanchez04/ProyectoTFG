@@ -72,7 +72,7 @@
     {
       "code": "NU1902",
       "level": "Warning",
-      "message": "El paquete \"MailKit\" 4.8.0 tiene una vulnerabilidad de gravedad moderada conocida, https://github.com/advisories/GHSA-9j88-vvj5-vhgr",
+      "message": "Package 'MailKit' 4.8.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr",
       "projectPath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
       "warningLevel": 1,
       "filePath": "C:\\Users\\cosas\\Documents\\Importantes\\TFG\\RestauranteFullStack\\backend\\backend.csproj",
