@@ -51,21 +51,37 @@ public class FinanzasController : ControllerBase
         var meses = new string[] { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
         var resultado = new List<object>();
 
+        int mesActual = DateTime.Now.Month;
+        int añoActual = DateTime.Now.Year;
+
         for (int i = 1; i <= 12; i++)
         {
-            var ingresos = ingresosMensuales.FirstOrDefault(x => x.Mes == i)?.Total ?? 0;
-            var gastosManuales = gastosMensualesManuales.FirstOrDefault(x => x.Mes == i)?.Total ?? 0;
-            
-            // Si el mes es futuro respecto a hoy, quizás no queramos mostrar gastos de sueldos todavía, 
-            // pero para la analítica proyectada los incluimos.
-            var gastosTotales = gastosManuales + sueldosMensuales;
+            // Si el año solicitado es mayor al actual, no mostramos nada aún
+            if (year > añoActual) break;
+
+            // Si es el año actual, solo mostramos hasta el mes actual
+            if (year == añoActual && i > mesActual) break;
+
+            // El usuario indica que empezaron en Abril de 2026. 
+            // Si el año es 2026 y el mes es anterior a Abril, lo tratamos como sin actividad.
+            bool sinActividad = (year == 2026 && i < 4);
+
+            double ingresos = 0;
+            double gastosTotales = 0;
+
+            if (!sinActividad)
+            {
+                ingresos = ingresosMensuales.FirstOrDefault(x => x.Mes == i)?.Total ?? 0;
+                var gastosManuales = gastosMensualesManuales.FirstOrDefault(x => x.Mes == i)?.Total ?? 0;
+                gastosTotales = (double)(gastosManuales + sueldosMensuales);
+            }
 
             resultado.Add(new
             {
                 mes = meses[i - 1],
                 ingresos = Math.Round(ingresos, 2),
-                gastos = Math.Round((double)gastosTotales, 2),
-                balance = Math.Round(ingresos - (double)gastosTotales, 2)
+                gastos = Math.Round(gastosTotales, 2),
+                balance = Math.Round(ingresos - gastosTotales, 2)
             });
         }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -10,7 +10,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, Cell
 } from 'recharts';
-
 export default function DashboardAdmin() {
   const [activeTab, setActiveTab] = useState('usuarios');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -57,28 +56,6 @@ export default function DashboardAdmin() {
     navigate('/');
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Informe Financiero Mensual", 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Fecha de generación: ${new Date().toLocaleDateString()}`, 14, 30);
-    
-    const dummyData = [
-      ["01/03/2026", "Ventas en sala", "1.250,00€"],
-      ["02/03/2026", "Ventas en sala", "980,00€"],
-      ["03/03/2026", "Ventas delivery", "1.420,00€"],
-      ["04/03/2026", "Catering externos", "3.500,00€"],
-      ["05/03/2026", "Ventas en sala", "1.100,00€"]
-    ];
-
-    autoTable(doc, {
-      startY: 40,
-      head: [['Fecha', 'Concepto', 'Ingresos']],
-      body: dummyData,
-    });
-
-    doc.save("Informe_Finanzas.pdf");
-  };
 
   const tabs = [
     { id: 'usuarios', label: 'Usuarios' },
@@ -218,7 +195,7 @@ export default function DashboardAdmin() {
                 {activeTab === 'menu' && <MenuModule />}
                 {activeTab === 'inventario' && <InventarioModule />}
                 {activeTab === 'gastos' && <GastosModule />}
-                {activeTab === 'finanzas' && <FinanzasModule exportToPDF={exportToPDF} />}
+                {activeTab === 'finanzas' && <FinanzasModule />}
                 {activeTab === 'resenas' && <ResenasModule />}
                 {activeTab === 'configuracion' && <ConfiguracionModule />}
             </div>
@@ -1646,7 +1623,7 @@ function GastosModule() {
   );
 }
 
-function FinanzasModule({ exportToPDF }) {
+function FinanzasModule() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -1674,6 +1651,170 @@ function FinanzasModule({ exportToPDF }) {
   const totalIngresos = data.reduce((acc, curr) => acc + curr.ingresos, 0);
   const totalGastos = data.reduce((acc, curr) => acc + curr.gastos, 0);
   const balanceTotal = totalIngresos - totalGastos;
+
+  const handleExportPDF = async () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // 1. Header Premium Negro
+    doc.setFillColor(15, 15, 15);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // Intentar cargar logo
+    try {
+      const img = new Image();
+      img.src = '/images/logo.jpg';
+      await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+      if (img.complete && img.naturalWidth > 0) {
+        doc.addImage(img, 'JPEG', 15, 5, 30, 30);
+      }
+    } catch (e) {}
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("REPORTE FINANCIERO", 55, 22);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(180, 180, 180);
+    doc.text(`Mild & Limón - Análisis de Rendimiento Anual ${year}`, 55, 30);
+    doc.text(`Documento generado el: ${new Date().toLocaleString('es-ES')}`, 55, 35);
+
+    // 2. Resumen Ejecutivo
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumen Ejecutivo", 15, 55);
+    
+    const cardWidth = (pageWidth - 45) / 3;
+    const cardY = 62;
+    
+    // Card Ingresos
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(15, cardY, cardWidth, 28, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("INGRESOS TOTALES", 20, cardY + 10);
+    doc.setFontSize(14);
+    doc.setTextColor(22, 163, 74);
+    doc.text(totalIngresos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }), 20, cardY + 20);
+
+    // Card Gastos
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(22.5 + cardWidth, cardY, cardWidth, 28, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("GASTOS OPERATIVOS", 27.5 + cardWidth, cardY + 10);
+    doc.setFontSize(14);
+    doc.setTextColor(220, 38, 38);
+    doc.text(totalGastos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }), 27.5 + cardWidth, cardY + 20);
+
+    // Card Balance
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(30 + cardWidth * 2, cardY, cardWidth, 28, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("RESULTADO NETO", 35 + cardWidth * 2, cardY + 10);
+    doc.setFontSize(14);
+    const balanceColor = balanceTotal >= 0 ? [22, 163, 74] : [220, 38, 38];
+    doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2]);
+    doc.text(balanceTotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }), 35 + cardWidth * 2, cardY + 20);
+
+    // 3. Gráficos Nativos (Dibujados directamente para evitar errores de renderizado)
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Análisis de Comparativa Mensual", 15, 105);
+    
+    const chartX = 20;
+    const chartY = 175; // Base del gráfico
+    const chartMaxHeight = 60;
+    const chartWidth = pageWidth - 40;
+    const barWidth = (chartWidth / data.length) / 2.5;
+    const spacing = (chartWidth / data.length);
+    
+    const maxVal = Math.max(...data.map(m => Math.max(m.ingresos, m.gastos)), 1000);
+    const scale = chartMaxHeight / maxVal;
+
+    // Eje X y Líneas de Guía
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.1);
+    for(let i=0; i<=4; i++) {
+        const yLine = chartY - (chartMaxHeight * (i/4));
+        doc.line(chartX, yLine, chartX + chartWidth, yLine);
+        doc.setFontSize(7);
+        doc.text(`${Math.round((maxVal * (i/4))/1000)}k`, chartX - 8, yLine + 2);
+    }
+
+    data.forEach((m, i) => {
+        const xPos = chartX + (i * spacing) + 5;
+        
+        // Barra Ingresos (Mostaza)
+        const hIng = m.ingresos * scale;
+        doc.setFillColor(234, 179, 8);
+        doc.rect(xPos, chartY - hIng, barWidth, hIng, 'F');
+        
+        // Barra Gastos (Rojo)
+        const hGas = m.gastos * scale;
+        doc.setFillColor(239, 68, 68);
+        doc.rect(xPos + barWidth + 1, chartY - hGas, barWidth, hGas, 'F');
+        
+        // Etiqueta Mes
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(8);
+        doc.text(m.mes, xPos + (barWidth), chartY + 5, { align: 'center' });
+    });
+
+    // Leyenda
+    doc.setFillColor(234, 179, 8);
+    doc.rect(pageWidth - 60, 100, 3, 3, 'F');
+    doc.setFontSize(8);
+    doc.text("Ingresos", pageWidth - 55, 103);
+    
+    doc.setFillColor(239, 68, 68);
+    doc.rect(pageWidth - 35, 100, 3, 3, 'F');
+    doc.text("Gastos", pageWidth - 30, 103);
+
+    // 4. Tabla Detallada (Nueva Página)
+    doc.addPage();
+    doc.setFillColor(15, 15, 15);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text("Desglose Mensual Detallado", 15, 17);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Mes', 'Ingresos', 'Gastos', 'Balance Neto', 'Estado']],
+      body: data.map(m => [
+        m.mes,
+        m.ingresos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        m.gastos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        m.balance.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        m.balance >= 0 ? 'GANANCIA' : 'PÉRDIDA'
+      ]),
+      headStyles: { fillColor: [15, 15, 15], textColor: [234, 179, 8], fontStyle: 'bold', fontSize: 10 },
+      bodyStyles: { fontSize: 9, cellPadding: 5 },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      columnStyles: {
+        3: { fontStyle: 'bold' },
+        4: { fontStyle: 'bold' }
+      },
+      didParseCell: (hookData) => {
+          if (hookData.column.index === 3 || hookData.column.index === 4) {
+              const rowData = data[hookData.row.index];
+              if (rowData && rowData.balance < 0) {
+                  hookData.cell.styles.textColor = [220, 38, 38];
+              } else {
+                  hookData.cell.styles.textColor = [22, 163, 74];
+              }
+          }
+      }
+    });
+
+    doc.save(`Informe_Finanzas_MildLimon_${year}.pdf`);
+  };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -1716,7 +1857,7 @@ function FinanzasModule({ exportToPDF }) {
                 {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button 
-                onClick={exportToPDF}
+                onClick={handleExportPDF}
                 className="bg-mostaza/10 text-mostaza border border-mostaza/20 hover:bg-mostaza/20 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
             >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -1724,6 +1865,7 @@ function FinanzasModule({ exportToPDF }) {
             </button>
         </div>
       </div>
+
 
       {/* Stats Quick View */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1751,7 +1893,7 @@ function FinanzasModule({ exportToPDF }) {
       </div>
 
       {/* Main Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-black p-4 rounded-3xl">
         {/* Income vs Expenses Chart */}
         <div className="bg-fondo-tarjeta border border-fondo-borde p-6 rounded-3xl shadow-xl">
             <h4 className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-wider">Comparativa Mensual</h4>
