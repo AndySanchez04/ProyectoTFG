@@ -12,6 +12,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Controlador para la gestión de Perfiles de usuario, roles de empleados y subida de avatares.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class UsuariosController : ControllerBase
@@ -23,10 +26,9 @@ namespace backend.Controllers
             _context = context;
         }
 
-        // TODO: En un futuro, añadir aquí un endpoint (ej: [Authorize(Roles = "jefe")])
-        // o validación manual del rol para gestionar roles y empleados.
-        // Solo el rol 'jefe' tendrá permisos para crear o modificar empleados.
-
+        /// <summary>
+        /// (Solo Jefe) Lista todos los usuarios registrados en el sistema para gestión de roles B2B.
+        /// </summary>
         [Authorize(Roles = "jefe")]
         [HttpGet]
         public async Task<IActionResult> GetUsuarios()
@@ -37,6 +39,9 @@ namespace backend.Controllers
             return Ok(usuarios);
         }
 
+        /// <summary>
+        /// (Solo Jefe) Cambia el rol de otro usuario (ej. de Cliente a Camarero). Previene quitarse el rol a uno mismo.
+        /// </summary>
         [Authorize(Roles = "jefe")]
         [HttpPut("{id}/rol")]
         public async Task<IActionResult> UpdateRol(int id, [FromBody] UpdateRolDto dto)
@@ -55,6 +60,9 @@ namespace backend.Controllers
             return Ok(new { message = "Rol actualizado correctamente" });
         }
 
+        /// <summary>
+        /// Obtiene el perfil completo del usuario que hace la petición.
+        /// </summary>
         [Authorize]
         [HttpGet("perfil")]
         public async Task<IActionResult> GetPerfil()
@@ -69,6 +77,9 @@ namespace backend.Controllers
             return Ok(new { user.Nombre, user.Email, user.Telefono, user.FotoPerfil });
         }
 
+        /// <summary>
+        /// Actualiza los datos personales básicos (nombre, teléfono) del perfil activo.
+        /// </summary>
         [Authorize]
         [HttpPut("perfil")]
         public async Task<IActionResult> UpdatePerfil([FromBody] UpdatePerfilDto dto)
@@ -88,6 +99,10 @@ namespace backend.Controllers
             return Ok(new { message = "Perfil actualizado" });
         }
 
+        /// <summary>
+        /// Sube un archivo de imagen al servidor (wwwroot/images/perfiles) para usarlo como avatar.
+        /// Valida la extensión permitida para evitar inyección de código.
+        /// </summary>
         [Authorize]
         [HttpPost("upload-foto")]
         public async Task<IActionResult> UploadFoto([FromForm] IFormFile file)
@@ -118,8 +133,7 @@ namespace backend.Controllers
             }
 
             // Retornar la URL relativa para que el frontend la use
-            // Asumiendo que el backend corre en el puerto configurado y sirve estáticos de wwwroot
-            var url = $"http://localhost:5105/images/perfiles/{nombreArchivo}";
+            var url = $"{Request.Scheme}://{Request.Host}/images/perfiles/{nombreArchivo}";
             return Ok(new { url });
         }
     }

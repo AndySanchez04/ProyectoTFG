@@ -13,6 +13,9 @@ using System.Text.Json.Serialization;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Controlador para la gestión del tablón de reseñas o testimonios (Guestbook).
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class ResenasController : ControllerBase
@@ -26,7 +29,9 @@ namespace backend.Controllers
             _configuration = configuration;
         }
 
-        // GET: api/Resenas
+        /// <summary>
+        /// Obtiene todas las reseñas para mostrarlas públicamente en la web.
+        /// </summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Resena>>> GetResenas()
         {
@@ -53,7 +58,9 @@ namespace backend.Controllers
             return CreatedAtAction("GetResenas", new { id = resena.Id }, resena);
         }
 
-        // POST: api/Resenas/responder/{id}
+        /// <summary>
+        /// (Solo Jefe) Responde a la reseña de un cliente. Envía un email al cliente si dejó su correo.
+        /// </summary>
         [Authorize(Roles = "jefe")]
         [HttpPost("responder/{id}")]
         public async Task<IActionResult> Responder(int id, [FromBody] RespuestaDto dto)
@@ -108,10 +115,9 @@ namespace backend.Controllers
                     await client.SendAsync(message);
                     await client.DisconnectAsync(true);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // Log error but don't fail the response
-                    Console.WriteLine($"Error enviando correo: {ex.Message}");
+                    // Falla de envío de correo silenciada (no bloquea la API)
                 }
             }
 

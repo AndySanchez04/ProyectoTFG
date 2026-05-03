@@ -25,6 +25,7 @@ export default function MisDatos() {
     const [reservaToCancel, setReservaToCancel] = useState(null);
 
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     useEffect(() => {
         fetchPerfil();
@@ -37,7 +38,7 @@ export default function MisDatos() {
         try {
             const usuario = localStorage.getItem('usuario');
             if (!usuario) return navigate('/');
-            const response = await axios.get('http://localhost:5105/api/usuarios/perfil');
+            const response = await axios.get(`${API_URL}/api/usuarios/perfil`);
             setNombre(response.data.nombre || '');
             setEmail(response.data.email || '');
             setTelefono(response.data.telefono || '');
@@ -61,7 +62,7 @@ export default function MisDatos() {
 
         try {
             setSubiendo(true);
-            const response = await axios.post('http://localhost:5105/api/usuarios/upload-foto', formData);
+            const response = await axios.post(`${API_URL}/api/usuarios/upload-foto`, formData);
             setFotoPerfil(response.data.url);
             setMensaje('¡Imagen subida correctamente!');
             setTimeout(() => setMensaje(''), 3000);
@@ -76,8 +77,7 @@ export default function MisDatos() {
     const fetchReservas = async () => {
         try {
             setLoadingReservas(true);
-            const response = await axios.get('http://localhost:5105/api/reservas/mis-reservas');
-            console.log("Reservas recibidas:", response.data);
+            const response = await axios.get(`${API_URL}/api/reservas/mis-reservas`);
             setReservas(response.data);
         } catch (error) {
             console.error("Error cargando reservas:", error);
@@ -101,7 +101,7 @@ export default function MisDatos() {
         e.preventDefault();
         if (errorTelefono) return;
         try {
-            await axios.put('http://localhost:5105/api/usuarios/perfil',
+            await axios.put(`${API_URL}/api/usuarios/perfil`,
                 { nombre, telefono, fotoPerfil }
             );
             setMensaje('¡Datos actualizados correctamente!');
@@ -122,7 +122,7 @@ export default function MisDatos() {
 
     const confirmCancelarReserva = async () => {
         try {
-            await axios.delete(`http://localhost:5105/api/reservas/${reservaToCancel}`);
+            await axios.delete(`${API_URL}/api/reservas/${reservaToCancel}`);
             setReservas(reservas.filter(r => r.id !== reservaToCancel));
             setShowCancelModal(false);
             setReservaToCancel(null);

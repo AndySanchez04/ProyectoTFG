@@ -6,6 +6,9 @@ using backend.Models;
 
 namespace backend.Controllers;
 
+/// <summary>
+/// Controlador para la gestión de ingredientes y productos físicos del almacén.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -18,7 +21,9 @@ public class InventarioController : ControllerBase
         _context = context;
     }
 
-    // GET: api/inventario
+    /// <summary>
+    /// Lista todos los artículos del inventario actual.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ArticuloInventario>>> GetInventario()
     {
@@ -26,7 +31,9 @@ public class InventarioController : ControllerBase
         return Ok(articulos);
     }
 
-    // POST: api/inventario
+    /// <summary>
+    /// (Solo Jefe) Añade un nuevo artículo al catálogo del almacén.
+    /// </summary>
     [Authorize(Roles = "jefe")]
     [HttpPost]
     public async Task<ActionResult<ArticuloInventario>> CreateArticulo([FromBody] ArticuloInventario articulo)
@@ -36,7 +43,9 @@ public class InventarioController : ControllerBase
         return CreatedAtAction(nameof(GetInventario), new { id = articulo.Id }, articulo);
     }
 
-    // PUT: api/inventario/5
+    /// <summary>
+    /// (Solo Jefe) Actualiza la cantidad o el coste de un artículo existente.
+    /// </summary>
     [Authorize(Roles = "jefe")]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateArticulo(int id, [FromBody] ArticuloInventario articulo)
@@ -64,13 +73,22 @@ public class InventarioController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/inventario/5
+    /// <summary>
+    /// (Solo Jefe) Intenta eliminar un artículo. Contiene protección contra borrado en cascada
+    /// si el artículo tiene un historial de movimientos financieros.
+    /// </summary>
     [Authorize(Roles = "jefe")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteArticulo(int id)
     {
         var articulo = await _context.ArticulosInventario.FindAsync(id);
         if (articulo == null) return NotFound();
+
+        bool hasMovements = await _context.MovimientosInventario.AnyAsync(m => m.ArticuloInventarioId == id);
+        if (hasMovements)
+        {
+            return BadRequest("No se puede eliminar este artículo porque tiene movimientos en el historial. Por favor, ajusta su stock a cero en lugar de borrarlo.");
+        }
 
         _context.ArticulosInventario.Remove(articulo);
         await _context.SaveChangesAsync();

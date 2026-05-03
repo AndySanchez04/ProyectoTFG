@@ -7,8 +7,15 @@ using System.Collections.Generic;
 
 namespace backend.Data
 {
+    /// <summary>
+    /// Clase encargada de la inicialización de la base de datos.
+    /// Crea las tablas necesarias si no existen y realiza el sembrado (seeding) de datos iniciales.
+    /// </summary>
     public static class DbInitializer
     {
+        /// <summary>
+        /// Método de inicialización que valida el esquema y añade datos base (mesas, categorías, usuarios, inventario).
+        /// </summary>
         public static void Initialize(IServiceProvider serviceProvider)
         {
             using var context = new U374392370ReservasContext(
@@ -55,6 +62,22 @@ namespace backend.Data
             // Asegurar que las columnas existen (por si se creó una versión antigua)
             try { context.Database.ExecuteSqlRaw("ALTER TABLE Resenas ADD COLUMN IF NOT EXISTS UsuarioEmail VARCHAR(255);"); } catch { }
             try { context.Database.ExecuteSqlRaw("ALTER TABLE Resenas ADD COLUMN IF NOT EXISTS RespuestaJefe TEXT;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Resenas ADD COLUMN IF NOT EXISTS UsuarioFoto TEXT NULL;"); } catch { }
+
+            // Asegurar columnas en Usuarios para Magic Link y Activación
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS IsActive TINYINT(1) DEFAULT 1;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS InvitationToken VARCHAR(255) NULL;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS TokenExpiration DATETIME NULL;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS FotoPerfil TEXT NULL;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS Telefono VARCHAR(50) NULL;"); } catch { }
+
+            // Asegurar columnas en Reservas
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Reservas ADD COLUMN IF NOT EXISTS FechaExpiracionLock DATETIME NULL;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Reservas ADD COLUMN IF NOT EXISTS StripePaymentId VARCHAR(100) NULL;"); } catch { }
+            try { context.Database.ExecuteSqlRaw("ALTER TABLE Reservas ADD COLUMN IF NOT EXISTS CreatedAt DATETIME DEFAULT current_timestamp();"); } catch { }
+
+            // Activar usuarios que pudieran haber quedado desactivados por defecto
+            try { context.Database.ExecuteSqlRaw("UPDATE Usuarios SET IsActive = 1 WHERE IsActive = 0 AND InvitationToken IS NULL;"); } catch { }
 
             // TAREA 3: Limpieza inicial
             var todasLasMesas = context.MesasRestaurantes.ToList();
@@ -146,9 +169,9 @@ namespace backend.Data
             // TAREA 3: Insertar Usuarios de Prueba para Testing de Roles
             var usuariosPrueba = new List<Usuario>
             {
-                new Usuario { Nombre = "Jefe", Email = "jefe@restaurante.com", Telefono = "111111111", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "jefe", FechaRegistro = DateTime.UtcNow },
-                new Usuario { Nombre = "Camarero", Email = "camarero@restaurante.com", Telefono = "222222222", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "camarero", FechaRegistro = DateTime.UtcNow },
-                new Usuario { Nombre = "Cocinero", Email = "cocinero@restaurante.com", Telefono = "333333333", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "cocinero", FechaRegistro = DateTime.UtcNow }
+                new Usuario { Nombre = "Jefe", Email = "jefe@restaurante.com", Telefono = "111111111", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "jefe", FechaRegistro = DateTime.UtcNow, IsActive = true },
+                new Usuario { Nombre = "Camarero", Email = "camarero@restaurante.com", Telefono = "222222222", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "camarero", FechaRegistro = DateTime.UtcNow, IsActive = true },
+                new Usuario { Nombre = "Cocinero", Email = "cocinero@restaurante.com", Telefono = "333333333", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"), Rol = "cocinero", FechaRegistro = DateTime.UtcNow, IsActive = true }
             };
 
             foreach (var u in usuariosPrueba)

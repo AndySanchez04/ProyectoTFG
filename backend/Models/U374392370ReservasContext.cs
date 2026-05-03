@@ -5,6 +5,10 @@ using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 
 namespace backend.Models;
 
+/// <summary>
+/// Contexto principal de Entity Framework Core para la base de datos del Restaurante.
+/// Gestiona la conexión y el mapeo objeto-relacional (ORM) de todas las tablas.
+/// </summary>
 public partial class U374392370ReservasContext : DbContext
 {
     public U374392370ReservasContext()

@@ -2,19 +2,24 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
+/**
+ * Componente de visualización y edición del perfil de usuario.
+ * Permite a los clientes actualizar su nombre y teléfono de contacto.
+ */
 export default function Perfil() {
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [telefono, setTelefono] = useState('');
     const [mensaje, setMensaje] = useState('');
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     useEffect(() => {
         const fetchPerfil = async () => {
             try {
                 const usuario = localStorage.getItem('usuario');
                 if (!usuario) return navigate('/');
-                const response = await axios.get('http://localhost:5105/api/usuarios/perfil');
+                const response = await axios.get(`${API_URL}/api/usuarios/perfil`);
                 setNombre(response.data.nombre);
                 setEmail(response.data.email);
                 setTelefono(response.data.telefono || '');
@@ -33,7 +38,7 @@ export default function Perfil() {
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
-            await axios.put('http://localhost:5105/api/usuarios/perfil',
+            await axios.put(`${API_URL}/api/usuarios/perfil`,
                 { nombre, telefono }
             );
             setMensaje('¡Datos actualizados correctamente!');
@@ -45,7 +50,7 @@ export default function Perfil() {
 
     const logout = async () => {
         try {
-            await axios.post('http://localhost:5105/api/auth/logout');
+            await axios.post(`${API_URL}/api/auth/logout`);
         } catch(e) {}
         localStorage.removeItem('usuario');
         localStorage.removeItem('rol');

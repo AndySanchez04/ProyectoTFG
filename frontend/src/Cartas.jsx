@@ -1,9 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * Componente que muestra las opciones de visualización y descarga de la carta digital del restaurante.
+ * Incluye versiones en español e inglés para comida y bebidas.
+ */
 export default function Cartas() {
     const navigate = useNavigate();
 
+    // Enlaces a los archivos PDF alojados en la carpeta pública.
     const menuOptions = [
         { title: 'Carta de Comida', subtitle: 'Versión en Español', link: '/Cartas/CartaComidaAlcala.pdf', icon: '🍽️' },
         { title: 'Food Menu', subtitle: 'English Version', link: '/Cartas/CartaComidaAlcala_EN.pdf', icon: '🍽️' },

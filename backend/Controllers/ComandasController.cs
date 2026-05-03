@@ -8,6 +8,10 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace backend.Controllers;
 
+/// <summary>
+/// Controlador para la gestión de Comandas y Tickets.
+/// Actúa de puente en tiempo real (SignalR) entre los camareros, cocina y barra.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -37,7 +41,9 @@ public class ComandasController : ControllerBase
         _hubContext = hubContext;
     }
 
-    // GET: api/comandas/bebidas-pendientes
+    /// <summary>
+    /// (Barra) Obtiene todas las bebidas pendientes de preparar agrupadas de forma plana.
+    /// </summary>
     [HttpGet("bebidas-pendientes")]
     public async Task<ActionResult<IEnumerable<object>>> GetBebidasPendientes()
     {
@@ -63,7 +69,10 @@ public class ComandasController : ControllerBase
         return Ok(bebidasPendientes);
     }
 
-    // GET: api/comandas/cocina
+    /// <summary>
+    /// (Cocina) Obtiene los tickets de comida (platos) pendientes, agrupados por mesa y fecha.
+    /// Excluye bebidas.
+    /// </summary>
     [HttpGet("cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetComandasCocina()
     {
@@ -98,7 +107,9 @@ public class ComandasController : ControllerBase
         return Ok(ticketsPorMesa);
     }
 
-    // GET: api/comandas/barra
+    /// <summary>
+    /// (Barra) Obtiene los tickets de bebida pendientes, agrupados por mesa y camarero.
+    /// </summary>
     [HttpGet("barra")]
     public async Task<ActionResult<IEnumerable<object>>> GetComandasBarra()
     {
@@ -135,7 +146,9 @@ public class ComandasController : ControllerBase
         return Ok(ticketsPorMesa);
     }
 
-    // GET: api/comandas/historial-cocina
+    /// <summary>
+    /// (Cocina) Obtiene el historial de platos servidos (completados) en el mes actual.
+    /// </summary>
     [HttpGet("historial-cocina")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialCocina()
     {
@@ -180,7 +193,9 @@ public class ComandasController : ControllerBase
         return Ok(historial);
     }
 
-    // GET: api/comandas/historial-barra
+    /// <summary>
+    /// (Barra) Obtiene el historial de bebidas servidas (completadas) en el mes actual.
+    /// </summary>
     [HttpGet("historial-barra")]
     public async Task<ActionResult<IEnumerable<object>>> GetHistorialBarra()
     {
@@ -225,7 +240,9 @@ public class ComandasController : ControllerBase
         return Ok(historial);
     }
 
-    // PUT: api/comandas/linea/{id}/servir
+    /// <summary>
+    /// Marca un plato o bebida como preparado/servido, y notifica a los clientes conectados vía SignalR.
+    /// </summary>
     [HttpPut("linea/{id}/servir")]
     public async Task<IActionResult> MarcarComoServida(int id)
     {
@@ -258,7 +275,9 @@ public class ComandasController : ControllerBase
         return Ok(new { mensaje = "Bebida marcada como servida correctamente." });
     }
 
-    // POST: api/comandas
+    /// <summary>
+    /// Abre una nueva comanda asimilando los productos requeridos y asociando la mesa/reserva.
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult<Comanda>> PostComanda([FromBody] CrearComandaDto comandaDto)
     {
@@ -284,7 +303,7 @@ public class ComandasController : ControllerBase
             .Where(r => r.MesaId == mesa.Id && 
                         r.FechaReserva == fechaActual &&
                         r.HoraInicio <= horaActual && r.HoraFin >= horaActual &&
-                        r.Estado == "confirmada")
+                        r.Estado == "Confirmada")
             .FirstOrDefaultAsync();
 
         // 3. Crear la cabecera de la Comanda

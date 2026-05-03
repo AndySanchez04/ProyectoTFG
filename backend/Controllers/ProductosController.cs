@@ -6,6 +6,9 @@ using backend.Models;
 
 namespace backend.Controllers;
 
+/// <summary>
+/// Controlador para la gestión de los Platos y Bebidas ofrecidos en el menú público.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -18,7 +21,9 @@ public class ProductosController : ControllerBase
         _context = context;
     }
 
-    // GET: api/productos
+    /// <summary>
+    /// Obtiene todo el catálogo de productos disponibles en el restaurante.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductoMenu>>> GetProductos()
     {
@@ -26,6 +31,9 @@ public class ProductosController : ControllerBase
         return Ok(productos);
     }
 
+    /// <summary>
+    /// (Solo Jefe) Crea un nuevo plato o bebida en el sistema.
+    /// </summary>
     [Authorize(Roles = "jefe")]
     [HttpPost]
     public async Task<ActionResult<ProductoMenu>> CreateProducto([FromBody] ProductoMenu producto)
@@ -47,12 +55,21 @@ public class ProductosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// (Solo Jefe) Elimina un producto. Evita borrado en cascada si el producto ya fue pedido en alguna comanda histórica.
+    /// </summary>
     [Authorize(Roles = "jefe")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProducto(int id)
     {
         var producto = await _context.ProductoMenus.FindAsync(id);
         if (producto == null) return NotFound();
+
+        bool hasOrders = await _context.LineasComanda.AnyAsync(l => l.ProductoMenuId == id);
+        if (hasOrders)
+        {
+            return BadRequest("No se puede eliminar el producto porque ya tiene pedidos asociados. Por favor, desmárcalo como 'Disponible' en lugar de borrarlo para mantener el historial.");
+        }
 
         _context.ProductoMenus.Remove(producto);
         await _context.SaveChangesAsync();

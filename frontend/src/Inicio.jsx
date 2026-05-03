@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from './Header';
 
+/**
+ * Componente de la página de inicio (Landing Page).
+ * Presenta el restaurante, galería de imágenes, ubicación y sistema de reseñas públicas.
+ */
 export default function Inicio() {
     const navigate = useNavigate();
     const [resenas, setResenas] = useState([]);

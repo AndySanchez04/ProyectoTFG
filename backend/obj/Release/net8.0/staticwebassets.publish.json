@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Hash": "usvzGeW3ptxSc/naHAo6QKmQdPi1nKIXMMzahJfdl1E=",
+  "Source": "backend",
+  "BasePath": "_content/backend",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "backend\\wwwroot",
+      "Source": "backend",
+      "ContentRoot": "C:\\Users\\angel\\Desktop\\TFG_R\\RestauranteFullStack\\backend\\wwwroot\\",
+      "BasePath": "_content/backend",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\angel\\Desktop\\TFG_R\\RestauranteFullStack\\backend\\wwwroot\\images\\perfiles\\39ec9784-ab49-4310-a7a1-2e7feb9c98d8.png",
+      "SourceId": "backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\angel\\Desktop\\TFG_R\\RestauranteFullStack\\backend\\wwwroot\\",
+      "BasePath": "_content/backend",
+      "RelativePath": "images/perfiles/39ec9784-ab49-4310-a7a1-2e7feb9c98d8.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\images\\perfiles\\39ec9784-ab49-4310-a7a1-2e7feb9c98d8.png"
+    },
+    {
+      "Identity": "C:\\Users\\angel\\Desktop\\TFG_R\\RestauranteFullStack\\backend\\wwwroot\\uploads\\.gitkeep",
+      "SourceId": "backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\angel\\Desktop\\TFG_R\\RestauranteFullStack\\backend\\wwwroot\\",
+      "BasePath": "_content/backend",
+      "RelativePath": "uploads/.gitkeep",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\.gitkeep"
+    }
+  ]
+}

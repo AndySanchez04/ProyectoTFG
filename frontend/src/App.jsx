@@ -3,32 +3,26 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import axios from 'axios';
 import Login from './Login';
 import Registro from './Registro';
-import Reservas from './Reservas';
 import Inicio from './Inicio';
 import Cartas from './Cartas';
 import MisDatos from './MisDatos';
-import DashboardWaiter from './DashboardWaiter';
-import DashboardAdmin from './components/DashboardAdmin';
-import PanelCocina from './PanelCocina';
 import SetupPassword from './SetupPassword';
 
-// Interceptor global
-axios.interceptors.request.use(
-  (config) => {
-    config.withCredentials = true; // Para enviar la cookie HttpOnly
-    const token = localStorage.getItem('token'); // Mantener por compatibilidad con código antiguo si lo hay
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+const DashboardAdmin = React.lazy(() => import('./components/DashboardAdmin'));
+const DashboardWaiter = React.lazy(() => import('./DashboardWaiter'));
+const PanelCocina = React.lazy(() => import('./PanelCocina'));
+const Reservas = React.lazy(() => import('./Reservas'));
 
+/**
+ * Componente principal de la aplicación.
+ * Define la estructura de rutas y gestiona la persistencia de la sesión del usuario.
+ */
 function App() {
   const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
+    // Intenta restaurar la sesión del usuario al cargar la aplicación.
+    // Llama al endpoint /me para validar la cookie JWT.
     const fetchSession = async () => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
@@ -36,9 +30,10 @@ function App() {
         localStorage.setItem('usuario', JSON.stringify(res.data));
         localStorage.setItem('rol', res.data.rol);
       } catch (e) {
+        // Si falla (token expirado o no existe), limpia el almacenamiento local.
         localStorage.removeItem('usuario');
         localStorage.removeItem('rol');
-        localStorage.removeItem('token'); // Por si acaso
+        localStorage.removeItem('token'); 
       } finally {
         setLoadingSession(false);
       }
@@ -57,7 +52,8 @@ function App() {
 
   return (
     <Router>
-      <Routes>
+      <React.Suspense fallback={<div className="text-white text-center mt-10">Cargando módulo...</div>}>
+        <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
         <Route path="/setup-password" element={<SetupPassword />} />
@@ -92,11 +88,16 @@ function App() {
             <PanelCocina />
           </ProtectedRoute>
         } />
-      </Routes>
+        </Routes>
+      </React.Suspense>
     </Router>
   );
 }
 
+/**
+ * Componente para proteger rutas privadas basándose en la sesión y roles.
+ * Si el usuario no está logueado o no tiene el rol adecuado, redirige al Login.
+ */
 function ProtectedRoute({ children, allowedRoles }) {
   const usuario = localStorage.getItem('usuario');
   const role = localStorage.getItem('rol');

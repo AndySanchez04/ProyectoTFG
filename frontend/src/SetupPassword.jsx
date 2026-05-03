@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+/**
+ * Componente para la configuración inicial de contraseña.
+ * Utilizado por el personal del restaurante al recibir una invitación por correo.
+ */
 export default function SetupPassword() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');

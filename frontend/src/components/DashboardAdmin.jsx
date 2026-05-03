@@ -10,6 +10,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, Cell
 } from 'recharts';
+/**
+ * Componente principal del Panel de Administración.
+ * Actúa como contenedor y gestor de navegación entre los diferentes módulos (Dashboard, Personal, Menú, etc.).
+ */
 export default function DashboardAdmin() {
   const [activeTab, setActiveTab] = useState('usuarios');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -512,6 +516,9 @@ function EmpleadosModule({ loggedInUserId }) {
   );
 }
 
+/**
+ * Módulo de Menú: Permite la gestión (CRUD) de los platos y categorías del restaurante.
+ */
 function MenuModule() {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -844,6 +851,9 @@ function MenuModule() {
   );
 }
 
+/**
+ * Módulo de Inventario: Gestiona las existencias de materia prima y productos.
+ */
 function InventarioModule() {
   const [articulos, setArticulos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1086,6 +1096,9 @@ function InventarioModule() {
   );
 }
 
+/**
+ * Módulo de Gestión de Empleados: Administra la información detallada del personal.
+ */
 function GestionEmpleadosModule() {
   const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1383,6 +1396,9 @@ function GestionEmpleadosModule() {
   );
 }
 
+/**
+ * Módulo de Gastos: Registro de los gastos operativos y fijos del negocio.
+ */
 function GastosModule() {
   const [gastos, setGastos] = useState([]);
   const [resumen, setResumen] = useState({ totalBruto: 0, totalNeto: 0, totalInventario: 0 });
@@ -1623,6 +1639,9 @@ function GastosModule() {
   );
 }
 
+/**
+ * Módulo de Finanzas: Visualización de métricas anuales y exportación de informes PDF.
+ */
 function FinanzasModule() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1984,6 +2003,9 @@ function FinanzasModule() {
   );
 }
 
+/**
+ * Módulo de Horarios: Herramienta para la planificación y exportación de turnos del personal.
+ */
 function HorariosModule() {
   const [empleados, setEmpleados] = useState([]);
   const [horarios, setHorarios] = useState({});
@@ -2319,6 +2341,9 @@ function HorariosModule() {
   );
 }
 
+/**
+ * Módulo de Configuración: Ajustes del sistema y gestión de Taco (avatar de ayuda).
+ */
 function ConfiguracionModule() {
   const [mensajes, setMensajes] = useState([]);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
@@ -2435,6 +2460,9 @@ function ConfiguracionModule() {
   );
 }
 
+/**
+ * Módulo de Reseñas: Permite ver las opiniones de los clientes y responderles por email.
+ */
 function ResenasModule() {
   const [resenas, setResenas] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -9,15 +9,16 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Configuración de servicios y contenedor de dependencias
+// =======================================================
 
-// CORS Configuration
+// Configuración de CORS para permitir peticiones desde el frontend de desarrollo (Vite)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigin",
         b =>
         {
-            b.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+            b.SetIsOriginAllowed(origin => true) // Permitir cualquier origen (Hostinger, localhost, Ngrok)
              .AllowAnyMethod()
              .AllowAnyHeader()
              .AllowCredentials();
@@ -39,7 +40,7 @@ builder.Services.AddDbContext<U374392370ReservasContext>(options =>
     }
 });
 
-// Authentication JWT Configuration
+// Configuración de Seguridad y Autenticación basada en JWT (JSON Web Tokens)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -62,7 +63,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Rate Limiting
+// Configuración de limitación de peticiones (Rate Limiting) para prevenir fuerza bruta
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("LoginPolicy", opt =>
@@ -92,62 +93,9 @@ using (var scope = app.Services.CreateScope())
         backend.Data.DbInitializer.Initialize(services);
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogInformation("Base de datos inicializada correctamente con DbInitializer.");
-        
-        // Listar tablas para depuración
-        using (var command = context.Database.GetDbConnection().CreateCommand())
-        {
-            command.CommandText = "SHOW TABLES;";
-            context.Database.OpenConnection();
-            using (var reader = command.ExecuteReader())
-            {
-                var tables = new List<string>();
-                while (reader.Read()) tables.Add(reader.GetString(0));
-                logger.LogInformation("Tablas en DB: " + string.Join(", ", tables));
-            }
-            
-                // Describe Resenas
-                command.CommandText = "DESCRIBE Resenas;";
-                using (var reader = command.ExecuteReader())
-                {
-                    logger.LogInformation("Estructura de Resenas:");
-                    while (reader.Read())
-                    {
-                        logger.LogInformation($"- {reader.GetString(0)} ({reader.GetString(1)})");
-                    }
-                }
-
-                // Log Reservas de Hoy detallado
-                var hoy = DateOnly.FromDateTime(DateTime.Now);
-                command.CommandText = $"SELECT COUNT(*) FROM Reservas WHERE FechaReserva = '{hoy:yyyy-MM-dd}';";
-                var count = command.ExecuteScalar();
-                logger.LogInformation($"Reservas encontradas para hoy ({hoy:yyyy-MM-dd}): {count}");
-
-                if (Convert.ToInt32(count) > 0)
-                {
-                    command.CommandText = $"SELECT Id, FechaReserva, HoraInicio, Estado, UsuarioId, MesaId FROM Reservas WHERE FechaReserva = '{hoy:yyyy-MM-dd}';";
-                    using (var reader = command.ExecuteReader())
-                    {
-                        logger.LogInformation("Detalles de las reservas de HOY:");
-                        while (reader.Read())
-                        {
-                            logger.LogInformation($"- ID: {reader.GetInt32(0)}, Fecha: {reader.GetDateTime(1):yyyy-MM-dd}, Hora: {reader.GetValue(2)}, Estado: {reader.GetString(3)}, UsuarioId: {reader.GetInt32(4)}, MesaId: {reader.GetInt32(5)}");
-                        }
-                    }
-                }
-
-                // PRUEBA: Imprimir TODAS las reservas
-                command.CommandText = $"SELECT Id, FechaReserva, HoraInicio, Estado, UsuarioId, MesaId FROM Reservas;";
-                using (var reader = command.ExecuteReader())
-                {
-                    logger.LogInformation("==== TODAS LAS RESERVAS ====");
-                    while (reader.Read())
-                    {
-                        logger.LogInformation($"- ID: {reader.GetInt32(0)}, Fecha: {reader.GetDateTime(1):yyyy-MM-dd}, Hora: {reader.GetValue(2)}, Estado: {reader.GetString(3)}, UsuarioId: {reader.GetInt32(4)}, MesaId: {reader.GetInt32(5)}");
-                    }
-                    logger.LogInformation("============================");
-                }
-            }
-        }
+        // La inicialización se completó correctamente
+        // Se ha omitido la validación exhaustiva por consola en producción.
+    }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
@@ -162,6 +110,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Middleware de seguridad personalizado (Cabeceras HTTP)
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
@@ -174,7 +123,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("AllowSpecificOrigin");
 

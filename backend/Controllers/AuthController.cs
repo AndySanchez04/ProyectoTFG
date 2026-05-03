@@ -15,6 +15,10 @@ using MimeKit;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Controlador encargado de la autenticación de usuarios.
+    /// Gestiona login, registro, invitaciones (B2B) y configuración de contraseñas.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -28,20 +32,25 @@ namespace backend.Controllers
             _configuration = configuration;
         }
 
+        /// <summary>
+        /// Registra a un nuevo usuario con rol de cliente en el sistema.
+        /// </summary>
         [HttpPost("registro")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
+            var email = dto.Email.Trim().ToLower();
+            if (await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == email))
                 return BadRequest("El usuario ya existe");
 
             var user = new Usuario
             {
                 Nombre = dto.Nombre,
-                Email = dto.Email,
+                Email = email,
                 Telefono = dto.Telefono,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Rol = "cliente",
-                FechaRegistro = DateTime.UtcNow
+                FechaRegistro = DateTime.UtcNow,
+                IsActive = true
             };
 
             _context.Usuarios.Add(user);
@@ -50,14 +59,20 @@ namespace backend.Controllers
             return Ok(new { message = "Usuario registrado correctamente" });
         }
 
+        /// <summary>
+        /// Inicia sesión verificando credenciales y devuelve un token JWT en una cookie.
+        /// </summary>
         [HttpPost("login")]
         [EnableRateLimiting("LoginPolicy")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            if (user == null)
+            var email = dto.Email?.Trim().ToLower();
+            
+            var user = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            if (user == null) {
                 return Unauthorized("Credenciales incorrectas");
-
+            }
+            
             if (!user.IsActive)
                 return Unauthorized("Tu cuenta está pendiente de activación. Por favor, revisa tu correo electrónico para configurar tu contraseña.");
 
@@ -66,14 +81,15 @@ namespace backend.Controllers
             {
                 isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
             }
-            catch
+            catch (Exception ex)
             {
                 // Fallback para usuarios antiguos guardados en texto plano
                 isPasswordValid = (user.PasswordHash == dto.Password);
             }
 
-            if (!isPasswordValid)
+            if (!isPasswordValid) {
                 return Unauthorized("Credenciales incorrectas");
+            }
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
@@ -87,7 +103,7 @@ namespace backend.Controllers
                     new Claim(ClaimTypes.Name, user.Nombre),
                     new Claim(ClaimTypes.Role, user.Rol)
                 }),
-                Expires = DateTime.UtcNow.AddHours(2),
+                Expires = DateTime.UtcNow.AddDays(7),
                 Issuer = _configuration["Jwt:Issuer"],
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
@@ -100,14 +116,18 @@ namespace backend.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTime.UtcNow.AddHours(2)
+                Expires = DateTime.UtcNow.AddDays(7)
             });
 
             return Ok(new { 
+                token = jwtString,
                 usuario = new { user.Id, user.Nombre, user.Email, user.FotoPerfil, user.Rol } 
             });
         }
 
+        /// <summary>
+        /// Obtiene el perfil del usuario autenticado a partir del token JWT.
+        /// </summary>
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMe()
@@ -123,6 +143,9 @@ namespace backend.Controllers
             return Ok(new { user.Id, user.Nombre, user.Email, user.FotoPerfil, user.Rol });
         }
 
+        /// <summary>
+        /// Cierra la sesión eliminando la cookie con el JWT.
+        /// </summary>
         [HttpPost("logout")]
         public IActionResult Logout()
         {
@@ -130,13 +153,16 @@ namespace backend.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(-1)
             });
 
             return Ok(new { message = "Sesión cerrada correctamente" });
         }
 
+        /// <summary>
+        /// (Solo Jefe) Envía un correo de invitación a un nuevo empleado (Magic Link) para configurar su cuenta.
+        /// </summary>
         [Authorize(Roles = "jefe")]
         [HttpPost("invite")]
         public async Task<IActionResult> Invite([FromBody] InviteDto dto)
@@ -155,7 +181,7 @@ namespace backend.Controllers
                 FechaRegistro = DateTime.UtcNow,
                 IsActive = false,
                 InvitationToken = token,
-                TokenExpiration = DateTime.UtcNow.AddHours(24)
+                TokenExpiration = DateTime.UtcNow.AddDays(7)
             };
 
             _context.Usuarios.Add(user);
@@ -208,6 +234,9 @@ namespace backend.Controllers
             return Ok(new { message = "Invitación enviada correctamente" });
         }
 
+        /// <summary>
+        /// Establece la contraseña de un usuario mediante el token de invitación enviado por correo.
+        /// </summary>
         [HttpPost("setup-password")]
         public async Task<IActionResult> SetupPassword([FromBody] SetupPasswordDto dto)
         {

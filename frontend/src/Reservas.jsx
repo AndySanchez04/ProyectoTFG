@@ -5,6 +5,11 @@ import Header from './Header';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+/**
+ * Componente del sistema de reservas de mesas.
+ * Gestiona un flujo de 7 pasos: Comensales -> Fecha -> Hora -> Zona -> Mesa -> Confirmación -> Éxito.
+ * Incluye lógica de bloqueo temporal de mesas y generación de justificantes en PDF.
+ */
 export default function Reservas() {
     const [paso, setPaso] = useState(1);
     const [personas, setPersonas] = useState(2);
@@ -23,6 +28,7 @@ export default function Reservas() {
 
     const navigate = useNavigate();
     const location = useLocation();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     const modifyingReservaId = location.state?.modificarReservaId;
     const isModifying = !!modifyingReservaId;
@@ -40,7 +46,7 @@ export default function Reservas() {
             try {
                 const usuario = localStorage.getItem('usuario');
                 if (usuario) {
-                    const res = await axios.get('http://localhost:5105/api/usuarios/perfil');
+                    const res = await axios.get(`${API_URL}/api/usuarios/perfil`);
                     setUserName(res.data.nombre);
                     setUserPhone(res.data.telefono || 'No especificado');
                 }
@@ -66,7 +72,7 @@ export default function Reservas() {
         // Si estamos retrocediendo desde el Paso 6 en una reserva nueva y hay un lock pendiente...
         if (paso === 6 && reservaId && !isModifying) {
             try {
-                await axios.delete(`http://localhost:5105/api/reservas/liberar-lock/${reservaId}`);
+                await axios.delete(`${API_URL}/api/reservas/liberar-lock/${reservaId}`);
             } catch (error) {
                 console.error("Error liberando mesa lockeada:", error);
             }
@@ -84,7 +90,7 @@ export default function Reservas() {
     const handleBuscarMesas = async (selectedZona) => {
         setZona(selectedZona);
         try {
-            const response = await axios.get(`http://localhost:5105/api/reservas/disponibles`, {
+            const response = await axios.get(`${API_URL}/api/reservas/disponibles`, {
                 params: { capacidad: personas, fecha: fecha, horaInicio: `${hora}:00`, zona: selectedZona }
             });
             setMesas(response.data);
@@ -104,7 +110,7 @@ export default function Reservas() {
                 return;
             }
 
-            const response = await axios.post('http://localhost:5105/api/reservas/BloquearMesa',
+            const response = await axios.post(`${API_URL}/api/reservas/BloquearMesa`,
                 { mesaId, fecha, horaInicio: `${hora}:00`, numPersonas: parseInt(personas) }
             );
             setReservaId(response.data.reservaId);
@@ -131,12 +137,12 @@ export default function Reservas() {
     const handleConfirmar = async () => {
         try {
             if (isModifying) {
-                await axios.put(`http://localhost:5105/api/reservas/${modifyingReservaId}`,
+                await axios.put(`${API_URL}/api/reservas/${modifyingReservaId}`,
                     { mesaId: selectedMesaId, fecha, horaInicio: `${hora}:00`, numPersonas: parseInt(personas) }
                 );
                 setPaso(7);
             } else {
-                await axios.post(`http://localhost:5105/api/reservas/ConfirmarReserva/${reservaId}`,
+                await axios.post(`${API_URL}/api/reservas/ConfirmarReserva/${reservaId}`,
                     {}
                 );
                 // En lugar de resetear, vamos al paso de éxito
@@ -175,7 +181,7 @@ export default function Reservas() {
         try {
             logoBase64 = await loadImageToBase64('/images/logo.jpg');
         } catch (e) {
-            console.warn("Logo not found for PDF", e);
+            
         }
 
         // Fondo Cabecera Premium
@@ -272,7 +278,7 @@ export default function Reservas() {
             const doc = await generatePDFContent();
             const pdfBase64 = doc.output('datauristring');
 
-            await axios.post('http://localhost:5105/api/reservas/enviar-justificante', {
+            await axios.post(`${API_URL}/api/reservas/enviar-justificante`, {
                 IdReserva: reservaId || modifyingReservaId,
                 PdfBase64: pdfBase64
             });

@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Controlador para la gestión de las frases mostradas por la mascota "Taco".
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class TacoMensajesController : ControllerBase
@@ -18,14 +21,18 @@ namespace backend.Controllers
             _context = context;
         }
 
-        // GET: api/TacoMensajes
+        /// <summary>
+        /// Obtiene todas las frases posibles que "Taco" puede decir en la interfaz.
+        /// </summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TacoMensaje>>> GetTacoMensajes()
         {
             return await _context.TacoMensajes.ToListAsync();
         }
 
-        // POST: api/TacoMensajes
+        /// <summary>
+        /// (Solo Jefe) Añade una nueva frase o curiosidad al repertorio de Taco.
+        /// </summary>
         [HttpPost]
         [Authorize(Roles = "jefe")]
         public async Task<ActionResult<TacoMensaje>> PostTacoMensaje(TacoMensaje mensaje)
@@ -36,7 +43,9 @@ namespace backend.Controllers
             return CreatedAtAction("GetTacoMensajes", new { id = mensaje.Id }, mensaje);
         }
 
-        // DELETE: api/TacoMensajes/5
+        /// <summary>
+        /// (Solo Jefe) Elimina un mensaje del repertorio de Taco.
+        /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = "jefe")]
         public async Task<IActionResult> DeleteTacoMensaje(int id)

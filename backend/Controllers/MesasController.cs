@@ -6,6 +6,9 @@ using backend.Models;
 
 namespace backend.Controllers;
 
+/// <summary>
+/// Controlador básico para la obtención del listado de mesas del local.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -18,7 +21,9 @@ public class MesasController : ControllerBase
         _context = context;
     }
 
-    // GET: api/mesas
+    /// <summary>
+    /// Obtiene todas las mesas ordenadas alfabéticamente por Zona y por Número.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<MesasRestaurante>>> GetMesas()
     {

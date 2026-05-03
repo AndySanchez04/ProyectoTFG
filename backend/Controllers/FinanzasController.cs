@@ -6,6 +6,10 @@ using backend.Models;
 
 namespace backend.Controllers;
 
+/// <summary>
+/// Controlador para el cálculo y exposición de los datos financieros del restaurante.
+/// Provee información de ingresos, gastos y beneficios para los gráficos administrativos.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -18,6 +22,10 @@ public class FinanzasController : ControllerBase
         _context = context;
     }
 
+    /// <summary>
+    /// Devuelve un resumen mensual agrupado (Ingresos, Gastos, Balance) para un año determinado.
+    /// Combina ingresos por comandas cobradas, gastos manuales y sueldos recurrentes.
+    /// </summary>
     [HttpGet("resumen-anual")]
     public async Task<ActionResult<IEnumerable<object>>> GetResumenAnual(int year)
     {

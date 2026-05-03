@@ -14,6 +14,10 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// Controlador principal para el manejo de Reservas de mesas.
+    /// Incluye algoritmos de disponibilidad, bloqueos temporales, cancelaciones y notificaciones por correo.
+    /// </summary>
     [Route("api/reservas")]
     [ApiController]
     public class ReservasController : ControllerBase
@@ -29,6 +33,9 @@ namespace backend.Controllers
             _hubContext = hubContext;
         }
 
+        /// <summary>
+        /// Busca mesas libres que cumplan los requisitos de capacidad y zona en una fecha/hora específicas.
+        /// </summary>
         [HttpGet("disponibles")]
         public async Task<IActionResult> GetMesasLibres([FromQuery] int capacidad, [FromQuery] DateTime fecha, [FromQuery] TimeSpan horaInicio, [FromQuery] string zona)
         {
@@ -59,6 +66,10 @@ namespace backend.Controllers
             return Ok(mesasOptimizadas);
         }
 
+        /// <summary>
+        /// Bloquea una mesa temporalmente (5 minutos) mientras el usuario completa el proceso de reserva.
+        /// Previene "Race conditions" (dos usuarios intentando reservar la misma mesa a la vez).
+        /// </summary>
         [Authorize]
         [HttpPost("BloquearMesa")]
         public async Task<IActionResult> BloquearMesa([FromBody] CrearReservaDto dto)
@@ -114,6 +125,10 @@ namespace backend.Controllers
             }
         }
 
+        /// <summary>
+        /// Pasa la reserva del estado "Pendiente" (bloqueada) a "Confirmada".
+        /// Se llama al finalizar el wizard de reserva.
+        /// </summary>
         [Authorize]
         [HttpPost("ConfirmarReserva/{id}")]
         public async Task<IActionResult> ConfirmarReserva(int id)
@@ -139,6 +154,9 @@ namespace backend.Controllers
             return Ok(new { message = "Reserva confirmada con éxito" });
         }
 
+        /// <summary>
+        /// Obtiene todas las reservas del usuario actualmente logueado.
+        /// </summary>
         [Authorize]
         [HttpGet("mis-reservas")]
         public async Task<IActionResult> GetMisReservas()
@@ -186,6 +204,9 @@ namespace backend.Controllers
 
 
 
+        /// <summary>
+        /// Obtiene la lista completa de reservas confirmadas para el día de hoy o una fecha dada (Solo Staff).
+        /// </summary>
         [Authorize(Roles = "camarero,jefe")]
         [HttpGet("hoy")]
         public async Task<IActionResult> GetReservasHoy([FromQuery] string? fecha = null)
@@ -239,6 +260,9 @@ namespace backend.Controllers
             return Ok(new { message = "Estado actualizado", estado = reserva.Estado });
         }
 
+        /// <summary>
+        /// Permite a un cliente cancelar su propia reserva.
+        /// </summary>
         [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> CancelarReserva(int id)
@@ -324,6 +348,9 @@ namespace backend.Controllers
             return Ok(new { message = "Reserva modificada con éxito", reservaId = reserva.Id });
         }
 
+        /// <summary>
+        /// Envía un correo de confirmación de reserva al cliente, opcionalmente adjuntando un PDF justificante.
+        /// </summary>
         [Authorize]
         [HttpPost("enviar-justificante")]
         public async Task<IActionResult> EnviarJustificante([FromBody] EmailDocDto dto)

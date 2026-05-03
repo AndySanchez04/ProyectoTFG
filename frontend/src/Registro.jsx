@@ -2,6 +2,10 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
+/**
+ * Componente de registro de nuevos clientes.
+ * Valida los datos del formulario, incluyendo el formato de teléfono español, y crea la cuenta del usuario.
+ */
 export default function Registro() {
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
@@ -10,6 +14,7 @@ export default function Registro() {
     const [errorTelefono, setErrorTelefono] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     const handleTelefonoChange = (e) => {
         const val = e.target.value.replace(/[^\d+]/g, '');
@@ -26,10 +31,12 @@ export default function Registro() {
         e.preventDefault();
         if (errorTelefono) return;
         try {
-            await axios.post('http://localhost:5105/api/auth/registro', { nombre, email, telefono, password });
+            const normalizedEmail = email.trim().toLowerCase();
+            await axios.post(`${API_URL}/api/auth/registro`, { nombre, email: normalizedEmail, telefono, password });
             navigate('/');
         } catch (err) {
-            setError('Error al registrar usuario');
+            const errorMsg = err.response?.data || 'Error al registrar usuario';
+            setError(typeof errorMsg === 'string' ? errorMsg : 'Error al registrar usuario');
         }
     };
 

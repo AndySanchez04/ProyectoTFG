@@ -2,16 +2,22 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
+/**
+ * Componente de inicio de sesión.
+ * Maneja la autenticación del usuario, el almacenamiento del token JWT y la redirección según el rol.
+ */
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://localhost:5105/api/auth/login', { email, password });
+            const normalizedEmail = email.trim().toLowerCase();
+            const response = await axios.post(`${API_URL}/api/auth/login`, { email: normalizedEmail, password });
             // Guardar el token JWT para el interceptor global
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('usuario', JSON.stringify(response.data.usuario));
@@ -31,7 +37,8 @@ export default function Login() {
                 navigate('/');
             }
         } catch (err) {
-            setError('Credenciales incorrectas');
+            const errorMsg = err.response?.data || 'Credenciales incorrectas';
+            setError(typeof errorMsg === 'string' ? errorMsg : 'Error al iniciar sesión');
         }
     };
 

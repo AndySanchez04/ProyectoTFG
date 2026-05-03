@@ -5,6 +5,7 @@ import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 export default function PanelCocina() {
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
   const [tickets, setTickets] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
@@ -12,7 +13,7 @@ export default function PanelCocina() {
 
   const fetchTicketsCocina = async () => {
     try {
-      const response = await axios.get('http://localhost:5105/api/comandas/cocina');
+      const response = await axios.get(`${API_URL}/api/comandas/cocina`);
       setTickets(response.data);
     } catch (error) {
       console.error("Error al obtener tickets de cocina:", error);
@@ -23,7 +24,7 @@ export default function PanelCocina() {
 
   const fetchHistorial = async () => {
     try {
-      const response = await axios.get('http://localhost:5105/api/comandas/historial-cocina');
+      const response = await axios.get(`${API_URL}/api/comandas/historial-cocina`);
       setHistorial(response.data);
     } catch (error) {
       console.error("Error al obtener historial:", error);
@@ -39,7 +40,7 @@ export default function PanelCocina() {
     fetchTicketsCocina();
     
     const connection = new HubConnectionBuilder()
-      .withUrl('http://localhost:5105/restauranteHub', { withCredentials: true })
+      .withUrl(`${API_URL}/restauranteHub`, { withCredentials: true })
       .withAutomaticReconnect([0, 2000, 10000, 30000]) // Intentos a 0s, 2s, 10s, 30s
       .configureLogging(LogLevel.Information)
       .build();
@@ -52,7 +53,7 @@ export default function PanelCocina() {
     const startConnection = async () => {
       try {
         await connection.start();
-        console.log("SignalR Connected in PanelCocina.");
+        // Conexión exitosa a SignalR para actualizaciones en tiempo real.
       } catch (err) {
         console.error("SignalR Connection Error: ", err);
         setTimeout(startConnection, 5000);
@@ -68,7 +69,7 @@ export default function PanelCocina() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('http://localhost:5105/api/auth/logout');
+      await axios.post(`${API_URL}/api/auth/logout`);
     } catch(e) {}
     localStorage.removeItem('usuario');
     localStorage.removeItem('rol');
@@ -77,7 +78,7 @@ export default function PanelCocina() {
 
   const marcarPlatoListo = async (idLinea) => {
     try {
-      await axios.put(`http://localhost:5105/api/comandas/linea/${idLinea}/servir`);
+      await axios.put(`${API_URL}/api/comandas/linea/${idLinea}/servir`);
 
       // Actualización optimista: marcar como servida en lugar de borrar el plato
       setTickets(prevTickets => {

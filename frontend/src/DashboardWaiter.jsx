@@ -5,6 +5,7 @@ import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 export default function DashboardWaiter() {
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
   // Estados
   const [productos, setProductos] = useState({ Comida: {}, Bebidas: {} });
   const [mesasDisponibles, setMesasDisponibles] = useState([]);
@@ -33,7 +34,7 @@ export default function DashboardWaiter() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('http://localhost:5105/api/auth/logout');
+      await axios.post(`${API_URL}/api/auth/logout`);
     } catch(e) {}
     localStorage.removeItem('usuario');
     localStorage.removeItem('rol');
@@ -46,7 +47,7 @@ export default function DashboardWaiter() {
 
   useEffect(() => {
     const connection = new HubConnectionBuilder()
-      .withUrl('http://localhost:5105/restauranteHub', { withCredentials: true })
+      .withUrl(`${API_URL}/restauranteHub`, { withCredentials: true })
       .withAutomaticReconnect([0, 2000, 10000, 30000])
       .configureLogging(LogLevel.Warning)
       .build();
@@ -60,7 +61,7 @@ export default function DashboardWaiter() {
     const startConnection = async () => {
       try {
         await connection.start();
-        console.log('SignalR conectado en DashboardWaiter.');
+        // Sincronización en tiempo real activada.
       } catch (err) {
         console.error('SignalR error:', err);
         setTimeout(startConnection, 5000);
@@ -77,8 +78,8 @@ export default function DashboardWaiter() {
       try {
         // Peticiones Paralelas
         const [resProductos, resMesas] = await Promise.all([
-          axios.get('http://localhost:5105/api/productos'),
-          axios.get('http://localhost:5105/api/mesas')
+          axios.get(`${API_URL}/api/productos`),
+          axios.get(`${API_URL}/api/mesas`)
         ]);
         
         // 1. Procesar Productos
@@ -128,7 +129,7 @@ export default function DashboardWaiter() {
   const fetchBebidasPendientes = async () => {
     try {
       setCargandoBebidas(true);
-      const response = await axios.get('http://localhost:5105/api/comandas/barra');
+      const response = await axios.get(`${API_URL}/api/comandas/barra`);
       setBebidasPendientes(response.data);
     } catch (error) {
       console.error("Error al obtener bebidas agrupadas:", error);
@@ -139,7 +140,7 @@ export default function DashboardWaiter() {
 
   const fetchHistorialBarra = async () => {
     try {
-      const response = await axios.get('http://localhost:5105/api/comandas/historial-barra');
+      const response = await axios.get(`${API_URL}/api/comandas/historial-barra`);
       setHistorial(response.data);
     } catch (error) {
       console.error("Error al obtener historial de barra:", error);
@@ -159,8 +160,7 @@ export default function DashboardWaiter() {
     const fecha = fechaFiltroRef.current;
     setErrorReservas(null);
     try {
-      const response = await axios.get(`http://localhost:5105/api/reservas/hoy?fecha=${fecha}`);
-      console.log('Reservas recibidas:', response.data);
+      const response = await axios.get(`${API_URL}/api/reservas/hoy?fecha=${fecha}`);
       setReservasHoy(response.data);
     } catch (error) {
       console.error("Error al obtener reservas:", error);
@@ -184,7 +184,7 @@ export default function DashboardWaiter() {
 
   const handleEstadoReserva = async (id, nuevoEstado) => {
     try {
-      await axios.put(`http://localhost:5105/api/reservas/${id}/estado`, { estado: nuevoEstado });
+      await axios.put(`${API_URL}/api/reservas/${id}/estado`, { estado: nuevoEstado });
       setReservasHoy(prev => prev.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
     } catch (error) {
       console.error("Error al cambiar estado de reserva:", error);
@@ -208,7 +208,7 @@ export default function DashboardWaiter() {
     if (!bebidaAServir) return;
 
     try {
-      await axios.put(`http://localhost:5105/api/comandas/linea/${bebidaAServir.idPedido}/servir`);
+      await axios.put(`${API_URL}/api/comandas/linea/${bebidaAServir.idPedido}/servir`);
       
       // Actualización optimista igual que en cocina
       setBebidasPendientes(prevTickets => {
@@ -302,7 +302,7 @@ export default function DashboardWaiter() {
     };
 
     try {
-      await axios.post('http://localhost:5105/api/comandas', body);
+      await axios.post(`${API_URL}/api/comandas`, body);
 
       // Resetear el estado para el siguiente cliente
       setCarrito({});
@@ -615,7 +615,7 @@ export default function DashboardWaiter() {
                         try {
                           // Servir todas las líneas de este ticket
                           await Promise.all(ticket.bebidas.map(b => 
-                            axios.put(`http://localhost:5105/api/comandas/linea/${b.idLinea}/servir`)
+                            axios.put(`${API_URL}/api/comandas/linea/${b.idLinea}/servir`)
                           ));
                           fetchBebidasPendientes();
                         } catch (e) {

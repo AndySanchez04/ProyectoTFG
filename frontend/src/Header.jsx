@@ -2,18 +2,30 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
+/**
+ * Cabecera global de la aplicación para clientes.
+ * Contiene el logo, navegación a reservas y el menú de perfil de usuario.
+ * También integra a "Taco", el avatar asistente del restaurante.
+ */
 export default function Header() {
     const [user, setUser] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const navigate = useNavigate();
     const menuRef = useRef(null);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     const fetchPerfil = async () => {
         try {
             const usuarioStr = localStorage.getItem('usuario');
             if (usuarioStr) {
-                const response = await axios.get('http://localhost:5105/api/usuarios/perfil');
-                setUser(response.data);
+                const parsedUser = JSON.parse(usuarioStr);
+                setUser(parsedUser); // Mostrar de inmediato desde localStorage
+                
+                // Actualizar silenciosamente en segundo plano
+                const response = await axios.get(`${API_URL}/api/usuarios/perfil`);
+                if (response.data) {
+                    setUser(response.data);
+                }
             }
         } catch (error) {
             console.error("Error cargando perfil en header", error);
@@ -35,7 +47,7 @@ export default function Header() {
 
     const handleLogout = async () => {
         try {
-            await axios.post('http://localhost:5105/api/auth/logout');
+            await axios.post(`${API_URL}/api/auth/logout`);
         } catch(e) {}
         localStorage.removeItem('usuario');
         localStorage.removeItem('rol');
@@ -80,13 +92,18 @@ export default function Header() {
     );
 }
 
+/**
+ * Componente "Taco": El perro avatar del restaurante.
+ * Muestra mensajes aleatorios configurados desde el panel de administración al hacer clic.
+ */
 function TacoAvatar() {
     const [mensajes, setMensajes] = useState([]);
     const [mensajeActual, setMensajeActual] = useState('');
     const [mostrarGlobo, setMostrarGlobo] = useState(false);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5105';
 
     useEffect(() => {
-        axios.get('http://localhost:5105/api/tacomensajes')
+        axios.get(`${API_URL}/api/tacomensajes`)
             .then(res => setMensajes(res.data))
             .catch(err => console.error("Error cargando mensajes de Taco", err));
     }, []);
